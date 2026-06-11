@@ -304,6 +304,7 @@ CATEGORY_ACCENTS = {
     "roofing": "#546e7a",
     "hvac": "#0096c7",
     "cleaning service": "#00b4d8",
+    "car detailing": "#d32f2f",
 }
 
 INDUSTRY_DATA = {
@@ -426,6 +427,13 @@ INDUSTRY_DATA = {
         "trust": ["Next-Day Turnaround", "Free Pickup & Delivery", "Eco-Friendly Solvents"],
         "photo": "photo-1558769132-cb1aea458c5e",
     },
+    "car detailing": {
+        "headline": "Showroom Shine, Every Time",
+        "sub": "Professional detailing and paint protection that keeps your vehicle looking brand new. Interior, exterior, and everything in between.",
+        "services": [("Full Detail", "🚗"), ("Interior Detail", "🧽"), ("Wash & Wax", "🫧"), ("Ceramic Coating", "🛡️"), ("Paint Correction", "✨"), ("Headlight Restoration", "💡")],
+        "trust": ["Fully Mobile Available", "Premium Products Only", "Satisfaction Guaranteed"],
+        "photo": "photo-1607860108855-64acf2078ed9",
+    },
     "flooring": {
         "headline": "Beautiful Floors Start Here",
         "sub": "Hardwood, LVP, tile, and carpet installation by local flooring pros. Free in-home estimates.",
@@ -456,7 +464,16 @@ def generate_preview_html(lead: dict) -> str:
 
     accent    = CATEGORY_ACCENTS.get(category, "#6366f1")
     cat_label = category.title()
-    template  = (lead_id or random.randint(0, 999999)) % 3
+    # Template is chosen by industry so each preview matches how real
+    # competitor sites in that space actually look
+    GROOMING = {"barber shop", "tattoo shop"}
+    BEAUTY   = {"nail salon", "hair salon", "daycare", "cleaning service", "dry cleaner"}
+    if category in GROOMING:
+        template = 0
+    elif category in BEAUTY:
+        template = 1
+    else:
+        template = 2
 
     ind       = INDUSTRY_DATA.get(category, _DEFAULT_INDUSTRY)
     headline  = ind["headline"].replace("{city}", city or "Your Area").replace("{cat}", cat_label)
@@ -511,439 +528,416 @@ def generate_preview_html(lead: dict) -> str:
   </div>
 </footer>"""
 
-    # Shared building blocks for the three traditional templates
-    svc_cards_classic = "".join(
-        f'<div class="svc-card"><div class="svc-icon">{icon}</div><h3>{svc}</h3><p>Professional {svc.lower()} done right, on time, and at a fair price.</p></div>'
-        for svc, icon in services
+    # Shared building blocks — templates are modeled on real competitor sites
+    menu_rows = "".join(
+        f'<div class="menu-item"><span class="menu-name">{svc}</span><span class="dots"></span><a class="menu-call" href="tel:{phone}">Call to Book</a></div>'
+        for svc, _ in services
     )
-    svc_cards_corp = "".join(
-        f'<div class="svc-card"><div class="svc-icon">{icon}</div><div><h3>{svc}</h3><p>Quality {svc.lower()} backed by our satisfaction guarantee.</p></div></div>'
-        for svc, icon in services
+    beauty_tiles = "".join(
+        f'<a class="tile" href="tel:{phone}"><span class="tile-name">{svc}</span><span class="tile-arrow">&rarr;</span></a>'
+        for svc, _ in services
     )
-    svc_cards_soft = "".join(
-        f'<div class="svc-card"><div class="svc-icon">{icon}</div><h3>{svc}</h3></div>'
+    pro_cards = "".join(
+        f'<div class="pro-card"><div class="pro-ico">{icon}</div><h3>{svc}</h3><p>Professional {svc.lower()} done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:{phone}">Free Estimate &rarr;</a></div>'
         for svc, icon in services
     )
     trust_checks = "".join(f'<li><span>&#10003;</span>{t}</li>' for t in trust)
 
-    # ── Template 0: Classic contractor — utility bar, overlay hero, 3-col cards ──
+    # ── Template 0: Heritage grooming — barbershop/tattoo (The Chair style) ───
     if template == 0:
         return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{name} | {cat_label} in {city or 'Your Area'}</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box;}}
 html{{scroll-behavior:smooth;}}
-body{{font-family:'Open Sans',sans-serif;color:#333;background:#fff;min-height:100vh;padding-bottom:70px;}}
-h1,h2,h3{{font-family:'Roboto Slab',serif;}}
-.preview-bar{{background:#222;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:600;}}
-.preview-bar a{{color:{accent};text-decoration:none;margin-left:6px;font-weight:700;}}
-.topbar{{background:#f4f4f4;border-bottom:1px solid #e2e2e2;font-size:12.5px;color:#555;}}
-.topbar-inner{{max-width:1140px;margin:0 auto;padding:8px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}}
-.topbar b{{color:#222;}}
-nav{{background:#fff;border-bottom:1px solid #e7e7e7;position:sticky;top:0;z-index:100;}}
-.nav-inner{{max-width:1140px;margin:0 auto;padding:0 20px;height:72px;display:flex;align-items:center;justify-content:space-between;}}
-.nav-brand{{display:flex;align-items:center;gap:11px;}}
-.nav-name{{font-family:'Roboto Slab',serif;font-weight:700;font-size:19px;color:#222;}}
-.nav-links{{display:flex;align-items:center;gap:26px;}}
-.nav-links a{{font-size:14px;font-weight:600;color:#444;text-decoration:none;}}
-.nav-links a:hover{{color:{accent};}}
-.nav-call{{background:{accent};color:#fff !important;font-weight:700;font-size:14px;padding:11px 22px;border-radius:4px;}}
-.hero{{position:relative;min-height:520px;display:flex;align-items:center;}}
+:root{{--ink:#141210;--panel:#1d1a17;--cream:#f1e9d8;--gold:#c2a05a;}}
+body{{font-family:'Jost',sans-serif;background:var(--ink);color:var(--cream);min-height:100vh;padding-bottom:70px;}}
+.preview-bar{{background:var(--gold);color:#141210;text-align:center;padding:8px 16px;font-size:12px;font-weight:600;}}
+.preview-bar a{{color:#141210;text-decoration:underline;margin-left:6px;font-weight:700;}}
+nav{{background:rgba(20,18,16,.96);border-bottom:1px solid rgba(241,233,216,.12);position:sticky;top:0;z-index:100;}}
+.nav-inner{{max-width:1100px;margin:0 auto;padding:0 20px;height:76px;display:flex;align-items:center;justify-content:space-between;}}
+.nav-name{{font-family:'Playfair Display',serif;font-weight:600;font-size:21px;color:var(--cream);letter-spacing:.02em;}}
+.nav-links{{display:flex;align-items:center;gap:28px;}}
+.nav-links a{{font-size:13px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:rgba(241,233,216,.75);text-decoration:none;}}
+.nav-links a:hover{{color:var(--gold);}}
+.nav-book{{border:1px solid var(--gold);color:var(--gold) !important;padding:11px 26px;}}
+.nav-book:hover{{background:var(--gold);color:#141210 !important;}}
+.hero{{position:relative;min-height:88vh;display:flex;align-items:center;justify-content:center;text-align:center;}}
 .hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
-.hero-overlay{{position:absolute;inset:0;background:rgba(20,24,31,.66);}}
-.hero-inner{{position:relative;z-index:2;max-width:1140px;margin:0 auto;padding:80px 20px;width:100%;}}
-.hero-sub{{color:{accent};font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px;}}
-.hero h1{{color:#fff;font-size:clamp(2rem,4.6vw,3.2rem);font-weight:700;line-height:1.15;max-width:640px;margin-bottom:16px;}}
-.hero p{{color:rgba(255,255,255,.88);font-size:1.05rem;line-height:1.7;max-width:560px;margin-bottom:28px;}}
-.btn{{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;padding:14px 30px;border-radius:4px;text-decoration:none;}}
-.btn-accent{{background:{accent};color:#fff;}}
-.btn-white{{background:#fff;color:#222;}}
-.feature-strip{{max-width:1140px;margin:-46px auto 0;padding:0 20px;position:relative;z-index:5;display:grid;grid-template-columns:repeat(3,1fr);gap:0;box-shadow:0 10px 34px rgba(0,0,0,.12);}}
-@media(max-width:760px){{.feature-strip{{grid-template-columns:1fr;}}}}
-.feature{{background:#fff;padding:26px 28px;border-right:1px solid #eee;display:flex;gap:14px;align-items:flex-start;}}
-.feature:last-child{{border-right:none;}}
-.feature-ico{{width:42px;height:42px;background:{accent}1c;color:{accent};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;font-weight:700;}}
-.feature h3{{font-size:15.5px;color:#222;margin-bottom:3px;}}
-.feature p{{font-size:13px;color:#777;line-height:1.5;}}
-.section{{max-width:1140px;margin:0 auto;padding:80px 20px;}}
-.section-head{{text-align:center;max-width:620px;margin:0 auto 44px;}}
-.section-head .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}}
-.section-head h2{{font-size:clamp(1.6rem,3.4vw,2.3rem);color:#222;margin-bottom:10px;}}
-.section-head p{{color:#777;font-size:15px;line-height:1.7;}}
-.svc-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;}}
-.svc-card{{background:#fff;border:1px solid #e7e7e7;border-top:3px solid {accent};padding:30px 26px;}}
-.svc-icon{{font-size:30px;margin-bottom:14px;}}
-.svc-card h3{{font-size:17px;color:#222;margin-bottom:8px;}}
-.svc-card p{{font-size:13.5px;color:#777;line-height:1.65;}}
-.why{{background:#f7f7f7;}}
-.why-inner{{max-width:1140px;margin:0 auto;padding:80px 20px;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;}}
-@media(max-width:820px){{.why-inner{{grid-template-columns:1fr;}}}}
-.why-photo img{{width:100%;border-radius:6px;display:block;aspect-ratio:4/3;object-fit:cover;}}
-.why-text .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}}
-.why-text h2{{font-size:clamp(1.5rem,3vw,2.1rem);color:#222;margin-bottom:14px;}}
-.why-text>p{{color:#666;line-height:1.75;margin-bottom:22px;}}
-.why-text ul{{list-style:none;display:flex;flex-direction:column;gap:11px;}}
-.why-text li{{display:flex;gap:11px;align-items:center;font-size:14.5px;font-weight:600;color:#333;}}
-.why-text li span{{width:24px;height:24px;background:{accent};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}}
-.cta{{background:{accent};}}
-.cta-inner{{max-width:1140px;margin:0 auto;padding:60px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:22px;}}
-.cta h2{{color:#fff;font-size:clamp(1.4rem,3vw,2rem);}}
-.cta p{{color:rgba(255,255,255,.85);font-size:14.5px;margin-top:6px;}}
-.contact{{max-width:1140px;margin:0 auto;padding:80px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;}}
-.contact-card{{border:1px solid #e7e7e7;padding:28px;text-align:center;}}
-.contact-card .ico{{font-size:26px;margin-bottom:10px;}}
-.contact-card h3{{font-size:15px;color:#222;margin-bottom:6px;}}
-.contact-card p{{font-size:14px;color:#666;line-height:1.6;}}
-.contact-card a{{color:{accent};font-weight:700;text-decoration:none;}}
-.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e2e2;box-shadow:0 -4px 18px rgba(0,0,0,.08);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
-.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:4px;text-decoration:none;}}
-.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#222;color:#fff;font-weight:700;font-size:13.5px;padding:13px;border-radius:4px;text-decoration:none;}}
-@media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}} .topbar-inner{{justify-content:center;}}}}
+.hero-overlay{{position:absolute;inset:0;background:rgba(20,18,16,.74);}}
+.hero-inner{{position:relative;z-index:2;max-width:740px;padding:90px 20px;}}
+.hero-eyebrow{{color:var(--gold);font-size:12px;font-weight:600;letter-spacing:.34em;text-transform:uppercase;margin-bottom:22px;}}
+.hero h1{{font-family:'Playfair Display',serif;font-weight:600;font-size:clamp(2.6rem,6.4vw,4.6rem);line-height:1.08;color:#fff;margin-bottom:18px;}}
+.hero-tagline{{font-family:'Playfair Display',serif;font-style:italic;font-size:clamp(1.05rem,2.4vw,1.35rem);color:rgba(241,233,216,.85);margin-bottom:34px;}}
+.ornament{{display:flex;align-items:center;justify-content:center;gap:16px;margin:0 auto 34px;color:var(--gold);}}
+.ornament::before,.ornament::after{{content:'';width:64px;height:1px;background:var(--gold);opacity:.6;}}
+.btn{{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:13.5px;letter-spacing:.18em;text-transform:uppercase;padding:17px 38px;text-decoration:none;}}
+.btn-gold{{background:var(--gold);color:#141210;}}
+.btn-line{{border:1px solid rgba(241,233,216,.45);color:var(--cream);}}
+.section{{max-width:1100px;margin:0 auto;padding:90px 20px;}}
+.sec-head{{text-align:center;margin-bottom:50px;}}
+.sec-head .eyebrow{{color:var(--gold);font-size:11.5px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;margin-bottom:12px;}}
+.sec-head h2{{font-family:'Playfair Display',serif;font-weight:600;font-size:clamp(1.9rem,4vw,2.7rem);color:#fff;}}
+.menu{{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:4px;}}
+.menu-item{{display:flex;align-items:baseline;gap:14px;padding:17px 4px;}}
+.menu-name{{font-family:'Playfair Display',serif;font-size:clamp(1.05rem,2.2vw,1.3rem);color:var(--cream);}}
+.dots{{flex:1;border-bottom:1px dotted rgba(241,233,216,.3);transform:translateY(-5px);}}
+.menu-call{{color:var(--gold);font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;white-space:nowrap;}}
+.craft{{background:var(--panel);}}
+.craft-inner{{max-width:1100px;margin:0 auto;padding:90px 20px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}}
+@media(max-width:820px){{.craft-inner{{grid-template-columns:1fr;}}}}
+.craft-photo{{position:relative;}}
+.craft-photo img{{width:100%;aspect-ratio:4/4.6;object-fit:cover;display:block;filter:grayscale(.25);}}
+.craft-photo::after{{content:'';position:absolute;inset:14px;border:1px solid rgba(194,160,90,.5);pointer-events:none;}}
+.craft-text .eyebrow{{color:var(--gold);font-size:11.5px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;margin-bottom:14px;}}
+.craft-text h2{{font-family:'Playfair Display',serif;font-weight:600;font-size:clamp(1.7rem,3.4vw,2.4rem);color:#fff;margin-bottom:18px;line-height:1.2;}}
+.craft-text p{{color:rgba(241,233,216,.7);line-height:1.85;font-size:15.5px;margin-bottom:26px;}}
+.craft-text ul{{list-style:none;display:flex;flex-direction:column;gap:13px;}}
+.craft-text li{{display:flex;gap:13px;align-items:center;font-size:14.5px;color:var(--cream);}}
+.craft-text li span{{color:var(--gold);font-size:15px;}}
+.visit{{border-top:1px solid rgba(241,233,216,.12);}}
+.visit-inner{{max-width:1100px;margin:0 auto;padding:80px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:44px;text-align:center;}}
+.visit h3{{font-size:11.5px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;}}
+.visit p{{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--cream);line-height:1.6;}}
+.visit a{{color:var(--cream);text-decoration:none;}}
+.cta{{text-align:center;background:var(--panel);border-top:1px solid rgba(241,233,216,.12);padding:90px 20px;}}
+.cta h2{{font-family:'Playfair Display',serif;font-weight:600;font-size:clamp(2rem,4.6vw,3rem);color:#fff;margin-bottom:14px;}}
+.cta p{{color:rgba(241,233,216,.7);margin-bottom:36px;font-size:15.5px;}}
+.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#141210;border-top:1px solid rgba(241,233,216,.18);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
+.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--gold);color:#141210;font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;padding:14px;text-decoration:none;}}
+.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;border:1px solid rgba(241,233,216,.4);color:var(--cream);font-weight:500;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;padding:14px;text-decoration:none;}}
+@media(max-width:700px){{.nav-links a:not(.nav-book){{display:none;}}}}
 </style></head><body>
 <div class="preview-bar">This is a FREE preview website built for {name}.<a href="sms:{phone}">Text us to claim it</a></div>
-<div class="topbar"><div class="topbar-inner">
-  <span><b>Hours:</b> Mon&ndash;Sat 8am&ndash;6pm</span>
-  <span><b>Serving:</b> {city if city else 'the local area'} &amp; surrounding</span>
-  <span><b>Call:</b> <a href="tel:{phone}" style="color:{accent};font-weight:700;text-decoration:none;">{phone}</a></span>
-</div></div>
 <nav><div class="nav-inner">
-  <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
+  <span class="nav-name">{name}</span>
   <div class="nav-links">
-    <a href="#services">Services</a>
+    <a href="#menu">Services</a>
     <a href="#about">About</a>
-    <a href="#contact">Contact</a>
-    <a href="tel:{phone}" class="nav-call">{phone}</a>
+    <a href="#visit">Visit</a>
+    <a href="tel:{phone}" class="nav-book">Book Now</a>
   </div>
 </div></nav>
 <section class="hero">
   <div class="hero-bg"></div><div class="hero-overlay"></div>
   <div class="hero-inner">
-    <div class="hero-sub">{cat_label} &bull; {city if city else 'Your Area'}</div>
-    <h1>{headline}</h1>
-    <p>{sub}</p>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn btn-white">{sms_svg}Request a Quote</a>
+    <div class="hero-eyebrow">{cat_label} &mdash; {city if city else 'Your Area'}</div>
+    <h1>{name}</h1>
+    <div class="hero-tagline">{headline}</div>
+    <div class="ornament">&#10045;</div>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+      <a href="tel:{phone}" class="btn btn-gold">Call to Book</a>
+      <a href="sms:{phone}" class="btn btn-line">Text Us</a>
     </div>
   </div>
 </section>
-<div class="feature-strip">
-  <div class="feature"><div class="feature-ico">&#10003;</div><div><h3>{trust[0]}</h3><p>We stand behind every job we complete.</p></div></div>
-  <div class="feature"><div class="feature-ico">&#9733;</div><div><h3>{trust[1] if len(trust) > 1 else 'Quality Work'}</h3><p>Trusted by homeowners and businesses alike.</p></div></div>
-  <div class="feature"><div class="feature-ico">&#9742;</div><div><h3>Fast Response</h3><p>Call or text and we will get right back to you.</p></div></div>
-</div>
-<section class="section" id="services">
-  <div class="section-head">
-    <div class="kicker">Our Services</div>
-    <h2>What We Can Do for You</h2>
-    <p>Full-service {cat_label.lower()} for {city if city else 'the local area'} and surrounding communities.</p>
+<section class="section" id="menu">
+  <div class="sec-head">
+    <div class="eyebrow">Fine Edges, Timeless Craft</div>
+    <h2>Service Menu</h2>
   </div>
-  <div class="svc-grid">{svc_cards_classic}</div>
+  <div class="menu">{menu_rows}</div>
 </section>
-<section class="why" id="about">
-  <div class="why-inner">
-    <div class="why-photo"><img src="{photo_url}" alt="{name}"></div>
-    <div class="why-text">
-      <div class="kicker">Why Choose Us</div>
-      <h2>A Local {cat_label} You Can Count On</h2>
-      <p>{name} is locally owned and operated right here in {city if city else 'your area'}. We believe in honest work, clear pricing, and treating every customer like a neighbor.</p>
-      <ul>{trust_checks}</ul>
-    </div>
+<section class="craft" id="about"><div class="craft-inner">
+  <div class="craft-photo"><img src="{photo_url}" alt="{name}"></div>
+  <div class="craft-text">
+    <div class="eyebrow">Our Philosophy</div>
+    <h2>We Respect the Craft</h2>
+    <p>{sub} At {name}, every visit is a ritual, not a rush job. Locally owned in {city if city else 'your area'}, we take the time to get it right.</p>
+    <ul>{''.join(f'<li><span>&#10045;</span>{t}</li>' for t in trust)}</ul>
   </div>
-</section>
+</div></section>
+<section class="visit" id="visit"><div class="visit-inner">
+  {f'<div><h3>Visit Us</h3><p>{address}</p></div>' if address else ''}
+  <div><h3>Hours</h3><p>Mon&ndash;Sat 9am&ndash;7pm<br>Sunday Closed</p></div>
+  <div><h3>Contact</h3><p><a href="tel:{phone}">{phone}</a></p></div>
+</div></section>
 <section class="cta">
-  <div class="cta-inner">
-    <div><h2>Ready to get started?</h2><p>Call today for a free, no-obligation estimate.</p></div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-      <a href="tel:{phone}" class="btn btn-white">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.55);">{sms_svg}Text Us</a>
-    </div>
+  <h2>Look Sharp. Feel Sharp.</h2>
+  <p>Call or text {name} to book your appointment today.</p>
+  <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <a href="tel:{phone}" class="btn btn-gold">Call {phone}</a>
+    <a href="sms:{phone}" class="btn btn-line">Send a Text</a>
   </div>
-</section>
-<section class="contact" id="contact">
-  <div class="contact-card"><div class="ico">&#9742;</div><h3>Phone</h3><p><a href="tel:{phone}">{phone}</a></p></div>
-  {f'<div class="contact-card"><div class="ico">&#128205;</div><h3>Address</h3><p>{address}</p></div>' if address else ''}
-  <div class="contact-card"><div class="ico">&#128336;</div><h3>Hours</h3><p>Mon&ndash;Sat 8am&ndash;6pm<br>Sunday by appointment</p></div>
-  <div class="contact-card"><div class="ico">&#127968;</div><h3>Service Area</h3><p>{city if city else 'Local Area'} &amp; surrounding communities</p></div>
 </section>
 {footer_html}
 <div class="sticky-bar">
-  <a href="tel:{phone}" class="sticky-call">{phone_svg}Call Now</a>
+  <a href="tel:{phone}" class="sticky-call">Call to Book</a>
   <a href="sms:{phone}" class="sticky-claim">Claim This Site Free</a>
 </div>
 </body></html>"""
 
-    # ── Template 1: Classic corporate — split hero, bordered cards, 3 steps ───
+    # ── Template 1: Serene beauty — salon/spa (Harmony / LaBo style) ──────────
     elif template == 1:
         return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{name} | {cat_label} in {city or 'Your Area'}</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box;}}
 html{{scroll-behavior:smooth;}}
-body{{font-family:'Open Sans',sans-serif;color:#3a3f47;background:#fff;min-height:100vh;padding-bottom:70px;}}
-h1,h2,h3{{font-family:'Poppins',sans-serif;color:#1d2129;}}
-.preview-bar{{background:#1d2129;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:600;}}
-.preview-bar a{{color:{accent};text-decoration:none;margin-left:6px;font-weight:700;}}
-.topbar{{background:{accent};color:#fff;font-size:12.5px;}}
-.topbar-inner{{max-width:1140px;margin:0 auto;padding:7px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}}
-.topbar a{{color:#fff;font-weight:700;text-decoration:none;}}
-nav{{background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.07);position:sticky;top:0;z-index:100;}}
-.nav-inner{{max-width:1140px;margin:0 auto;padding:0 20px;height:74px;display:flex;align-items:center;justify-content:space-between;}}
-.nav-brand{{display:flex;align-items:center;gap:11px;}}
-.nav-name{{font-family:'Poppins',sans-serif;font-weight:700;font-size:18px;color:#1d2129;}}
-.nav-links{{display:flex;align-items:center;gap:26px;}}
-.nav-links a{{font-size:14px;font-weight:600;color:#3a3f47;text-decoration:none;}}
-.nav-call{{background:{accent};color:#fff !important;font-weight:700;font-size:14px;padding:11px 24px;border-radius:30px;}}
-.hero{{background:#f6f8fa;}}
-.hero-inner{{max-width:1140px;margin:0 auto;padding:72px 20px;display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center;}}
-@media(max-width:820px){{.hero-inner{{grid-template-columns:1fr;padding-top:52px;}}}}
-.hero-badge{{display:inline-block;background:#fff;border:1px solid #e1e6eb;color:{accent};font-size:12.5px;font-weight:700;padding:7px 16px;border-radius:30px;margin-bottom:18px;}}
-.hero h1{{font-size:clamp(2rem,4.4vw,3rem);font-weight:700;line-height:1.18;margin-bottom:16px;}}
-.hero p{{color:#5b626c;font-size:1.03rem;line-height:1.75;margin-bottom:26px;max-width:500px;}}
-.hero ul{{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:28px;}}
-.hero li{{display:flex;gap:10px;align-items:center;font-size:14.5px;font-weight:600;color:#3a3f47;}}
-.hero li span{{color:{accent};font-weight:700;}}
-.btn{{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;padding:14px 30px;border-radius:30px;text-decoration:none;}}
-.btn-accent{{background:{accent};color:#fff;box-shadow:0 6px 18px {accent}40;}}
-.btn-line{{background:#fff;color:#1d2129;border:1.5px solid #d4dae0;}}
-.hero-photo img{{width:100%;border-radius:10px;display:block;aspect-ratio:4/3.4;object-fit:cover;box-shadow:0 18px 44px rgba(29,33,41,.16);}}
-.section{{max-width:1140px;margin:0 auto;padding:80px 20px;}}
-.section-head{{max-width:620px;margin-bottom:42px;}}
-.section-head .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}}
-.section-head h2{{font-size:clamp(1.6rem,3.2vw,2.2rem);margin-bottom:10px;}}
-.section-head p{{color:#5b626c;font-size:15px;line-height:1.7;}}
-.svc-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px;}}
-.svc-card{{display:flex;gap:16px;align-items:flex-start;border:1px solid #e1e6eb;border-radius:10px;padding:24px;transition:.2s;}}
-.svc-card:hover{{border-color:{accent};box-shadow:0 8px 24px rgba(29,33,41,.08);}}
-.svc-icon{{width:48px;height:48px;background:{accent}14;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0;}}
-.svc-card h3{{font-size:16px;margin-bottom:5px;}}
-.svc-card p{{font-size:13.5px;color:#5b626c;line-height:1.6;}}
-.steps{{background:#1d2129;}}
-.steps-inner{{max-width:1140px;margin:0 auto;padding:76px 20px;}}
-.steps-inner .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}}
-.steps-inner h2{{color:#fff;font-size:clamp(1.5rem,3vw,2.1rem);margin-bottom:38px;}}
-.steps-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:22px;}}
-.step{{background:#262b34;border-radius:10px;padding:28px;}}
-.step-num{{font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:{accent};margin-bottom:12px;}}
-.step h3{{color:#fff;font-size:16.5px;margin-bottom:7px;}}
-.step p{{color:#9aa3ad;font-size:13.5px;line-height:1.65;}}
-.contact-band{{background:#f6f8fa;}}
-.contact-inner{{max-width:1140px;margin:0 auto;padding:76px 20px;display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;}}
-@media(max-width:820px){{.contact-inner{{grid-template-columns:1fr;}}}}
-.contact-left h2{{font-size:clamp(1.5rem,3vw,2.1rem);margin-bottom:12px;}}
-.contact-left p{{color:#5b626c;line-height:1.75;margin-bottom:24px;}}
-.contact-rows{{display:flex;flex-direction:column;gap:12px;}}
-.c-row{{background:#fff;border:1px solid #e1e6eb;border-radius:10px;padding:17px 22px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;}}
-.c-row b{{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#9aa3ad;}}
-.c-row span{{font-weight:700;color:#1d2129;font-size:14.5px;}}
-.c-row a{{color:{accent};font-weight:700;text-decoration:none;}}
-.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e1e6eb;box-shadow:0 -4px 18px rgba(0,0,0,.08);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
-.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:30px;text-decoration:none;}}
-.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#1d2129;color:#fff;font-weight:700;font-size:13.5px;padding:13px;border-radius:30px;text-decoration:none;}}
-@media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}} .topbar-inner{{justify-content:center;}}}}
+:root{{--ink:#3b3531;--soft:#8c827a;--bg:#fffdfa;--panel:#f6f1ea;--rose:#b08968;}}
+body{{font-family:'Jost',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding-bottom:70px;font-weight:400;}}
+.preview-bar{{background:var(--ink);color:#fffdfa;text-align:center;padding:8px 16px;font-size:12px;font-weight:500;}}
+.preview-bar a{{color:#e9c9a8;text-decoration:none;margin-left:6px;font-weight:600;}}
+nav{{background:rgba(255,253,250,.96);backdrop-filter:blur(8px);border-bottom:1px solid #eee5da;position:sticky;top:0;z-index:100;}}
+.nav-inner{{max-width:1100px;margin:0 auto;padding:0 20px;height:78px;display:flex;align-items:center;justify-content:space-between;}}
+.nav-name{{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:23px;color:var(--ink);letter-spacing:.04em;}}
+.nav-links{{display:flex;align-items:center;gap:30px;}}
+.nav-links a{{font-size:12.5px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--soft);text-decoration:none;}}
+.nav-links a:hover{{color:var(--rose);}}
+.nav-book{{border:1px solid var(--rose);color:var(--rose) !important;padding:11px 28px;border-radius:0;}}
+.nav-book:hover{{background:var(--rose);color:#fff !important;}}
+.hero{{position:relative;min-height:82vh;display:flex;align-items:center;justify-content:center;text-align:center;}}
+.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
+.hero-overlay{{position:absolute;inset:0;background:rgba(43,36,30,.5);}}
+.hero-inner{{position:relative;z-index:2;max-width:760px;padding:90px 20px;}}
+.hero-welcome{{color:#fff;font-size:12.5px;font-weight:500;letter-spacing:.42em;text-transform:uppercase;margin-bottom:20px;opacity:.92;}}
+.hero h1{{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(2.6rem,6.2vw,4.4rem);line-height:1.1;color:#fff;letter-spacing:.02em;margin-bottom:18px;}}
+.hero p{{color:rgba(255,255,255,.88);font-size:1.05rem;font-weight:300;line-height:1.8;max-width:540px;margin:0 auto 36px;}}
+.btn{{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-weight:500;font-size:12.5px;letter-spacing:.22em;text-transform:uppercase;padding:17px 40px;text-decoration:none;}}
+.btn-fill{{background:var(--rose);color:#fff;}}
+.btn-line{{border:1px solid rgba(255,255,255,.7);color:#fff;}}
+.welcome{{max-width:1100px;margin:0 auto;padding:90px 20px 30px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px;}}
+.w-card{{background:var(--panel);padding:42px 34px;text-align:center;}}
+.w-card .ico{{font-family:'Cormorant Garamond',serif;font-size:30px;color:var(--rose);margin-bottom:14px;}}
+.w-card h3{{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.35rem;color:var(--ink);margin-bottom:10px;}}
+.w-card p{{font-size:14px;font-weight:300;color:var(--soft);line-height:1.75;}}
+.section{{max-width:1100px;margin:0 auto;padding:80px 20px;}}
+.sec-head{{text-align:center;margin-bottom:46px;}}
+.sec-head .eyebrow{{color:var(--rose);font-size:11.5px;font-weight:500;letter-spacing:.34em;text-transform:uppercase;margin-bottom:12px;}}
+.sec-head h2{{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(2rem,4.4vw,2.9rem);color:var(--ink);}}
+.tiles{{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;}}
+.tile{{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#fff;border:1px solid #eee5da;padding:26px 28px;text-decoration:none;transition:.25s;}}
+.tile:hover{{border-color:var(--rose);background:var(--panel);}}
+.tile-name{{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.2rem;color:var(--ink);}}
+.tile-arrow{{color:var(--rose);font-size:18px;}}
+.story{{background:var(--panel);}}
+.story-inner{{max-width:1100px;margin:0 auto;padding:90px 20px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}}
+@media(max-width:820px){{.story-inner{{grid-template-columns:1fr;}}}}
+.story-text .eyebrow{{color:var(--rose);font-size:11.5px;font-weight:500;letter-spacing:.34em;text-transform:uppercase;margin-bottom:14px;}}
+.story-text h2{{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(1.8rem,3.6vw,2.5rem);color:var(--ink);margin-bottom:16px;line-height:1.2;}}
+.story-text h2 em{{color:var(--rose);}}
+.story-text p{{color:var(--soft);font-weight:300;line-height:1.9;font-size:15.5px;margin-bottom:24px;}}
+.story-text ul{{list-style:none;display:flex;flex-direction:column;gap:12px;}}
+.story-text li{{display:flex;gap:12px;align-items:center;font-size:14.5px;color:var(--ink);}}
+.story-text li span{{color:var(--rose);}}
+.story-photo img{{width:100%;aspect-ratio:4/4.8;object-fit:cover;display:block;}}
+.info{{max-width:1100px;margin:0 auto;padding:80px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:40px;text-align:center;}}
+.info h3{{font-size:11.5px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:var(--rose);margin-bottom:12px;}}
+.info p{{font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:var(--ink);line-height:1.6;}}
+.info a{{color:var(--ink);text-decoration:none;}}
+.cta{{background:var(--ink);text-align:center;padding:90px 20px;}}
+.cta .eyebrow{{color:#e9c9a8;font-size:11.5px;font-weight:500;letter-spacing:.34em;text-transform:uppercase;margin-bottom:14px;}}
+.cta h2{{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(2rem,4.6vw,3rem);color:#fffdfa;margin-bottom:14px;}}
+.cta p{{color:rgba(255,253,250,.7);font-weight:300;margin-bottom:36px;}}
+.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:rgba(255,253,250,.97);border-top:1px solid #eee5da;padding:10px 16px;display:flex;gap:10px;z-index:200;}}
+.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--rose);color:#fff;font-weight:500;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;padding:14px;text-decoration:none;}}
+.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;border:1px solid var(--ink);color:var(--ink);font-weight:500;font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:14px;text-decoration:none;}}
+@media(max-width:700px){{.nav-links a:not(.nav-book){{display:none;}}}}
 </style></head><body>
 <div class="preview-bar">Free website preview for {name}.<a href="sms:{phone}">Text to claim it</a></div>
-<div class="topbar"><div class="topbar-inner">
-  <span>Serving {city if city else 'the local area'} &amp; surrounding communities</span>
-  <span>Mon&ndash;Sat 8am&ndash;6pm &nbsp;&bull;&nbsp; <a href="tel:{phone}">{phone}</a></span>
-</div></div>
 <nav><div class="nav-inner">
-  <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
-  <div class="nav-links">
-    <a href="#services">Services</a>
-    <a href="#how">How It Works</a>
-    <a href="#contact">Contact</a>
-    <a href="tel:{phone}" class="nav-call">Call Now</a>
-  </div>
-</div></nav>
-<section class="hero"><div class="hero-inner">
-  <div>
-    <div class="hero-badge">{cat_label} in {city if city else 'Your Area'}</div>
-    <h1>{headline}</h1>
-    <p>{sub}</p>
-    <ul>{''.join(f'<li><span>&#10003;</span>{t}</li>' for t in trust)}</ul>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn btn-line">{sms_svg}Text Us</a>
-    </div>
-  </div>
-  <div class="hero-photo"><img src="{photo_url}" alt="{name}"></div>
-</div></section>
-<section class="section" id="services">
-  <div class="section-head">
-    <div class="kicker">What We Offer</div>
-    <h2>Our Services</h2>
-    <p>Complete {cat_label.lower()} services for homes and businesses in {city if city else 'the local area'}.</p>
-  </div>
-  <div class="svc-grid">{svc_cards_corp}</div>
-</section>
-<section class="steps" id="how"><div class="steps-inner">
-  <div class="kicker">How It Works</div>
-  <h2>Getting Started Is Easy</h2>
-  <div class="steps-grid">
-    <div class="step"><div class="step-num">STEP 1</div><h3>Call or Text Us</h3><p>Reach us at {phone}. Tell us what you need and we will answer any questions.</p></div>
-    <div class="step"><div class="step-num">STEP 2</div><h3>Get Your Free Quote</h3><p>We give you clear, upfront pricing before any work begins. No surprises.</p></div>
-    <div class="step"><div class="step-num">STEP 3</div><h3>Job Done Right</h3><p>Our team shows up on time and gets it done right the first time. Guaranteed.</p></div>
-  </div>
-</div></section>
-<section class="contact-band" id="contact"><div class="contact-inner">
-  <div class="contact-left">
-    <h2>Get in Touch Today</h2>
-    <p>{name} is ready to help. Call or text for a fast response and a free, no-obligation quote.</p>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn btn-line">{sms_svg}Send a Text</a>
-    </div>
-  </div>
-  <div class="contact-rows">
-    <div class="c-row"><b>Phone</b><span><a href="tel:{phone}">{phone}</a></span></div>
-    {f'<div class="c-row"><b>Address</b><span>{address}</span></div>' if address else ''}
-    <div class="c-row"><b>Hours</b><span>Mon&ndash;Sat 8am&ndash;6pm</span></div>
-    <div class="c-row"><b>Service Area</b><span>{city if city else 'Local Area'} &amp; Surrounding</span></div>
-  </div>
-</div></section>
-{footer_html}
-<div class="sticky-bar">
-  <a href="tel:{phone}" class="sticky-call">{phone_svg}Call Now</a>
-  <a href="sms:{phone}" class="sticky-claim">Claim This Site Free</a>
-</div>
-</body></html>"""
-
-    # ── Template 2: Friendly local — centered hero, soft cards, about right ───
-    else:
-        return f"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{name} | {cat_label} in {city or 'Your Area'}</title>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-<style>
-*{{margin:0;padding:0;box-sizing:border-box;}}
-html{{scroll-behavior:smooth;}}
-body{{font-family:'Lato',sans-serif;color:#42413d;background:#fff;min-height:100vh;padding-bottom:70px;}}
-h1,h2,h3{{font-family:'Nunito',sans-serif;color:#26251f;}}
-.preview-bar{{background:#26251f;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:700;}}
-.preview-bar a{{color:{accent};text-decoration:none;margin-left:6px;font-weight:800;}}
-nav{{background:#fff;border-bottom:1px solid #ecebe7;position:sticky;top:0;z-index:100;}}
-.nav-inner{{max-width:1100px;margin:0 auto;padding:0 20px;height:74px;display:flex;align-items:center;justify-content:space-between;}}
-.nav-brand{{display:flex;align-items:center;gap:11px;}}
-.nav-name{{font-family:'Nunito',sans-serif;font-weight:900;font-size:19px;color:#26251f;}}
-.nav-links{{display:flex;align-items:center;gap:24px;}}
-.nav-links a{{font-size:14.5px;font-weight:700;color:#56554f;text-decoration:none;}}
-.nav-call{{background:{accent};color:#fff !important;font-weight:800;font-size:14px;padding:11px 24px;border-radius:10px;}}
-.hero{{position:relative;text-align:center;padding:96px 20px 110px;overflow:hidden;}}
-.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
-.hero-overlay{{position:absolute;inset:0;background:rgba(24,23,19,.62);}}
-.hero-inner{{position:relative;z-index:2;max-width:760px;margin:0 auto;}}
-.hero-badge{{display:inline-block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:13px;font-weight:700;padding:8px 20px;border-radius:30px;margin-bottom:20px;}}
-.hero h1{{color:#fff;font-size:clamp(2.1rem,5vw,3.4rem);font-weight:900;line-height:1.12;margin-bottom:16px;}}
-.hero p{{color:rgba(255,255,255,.88);font-size:1.08rem;line-height:1.7;margin-bottom:30px;max-width:580px;margin-left:auto;margin-right:auto;}}
-.btn{{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:15px;padding:15px 32px;border-radius:10px;text-decoration:none;}}
-.btn-accent{{background:{accent};color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.25);}}
-.btn-white{{background:#fff;color:#26251f;}}
-.hero-stats{{position:relative;z-index:2;display:flex;justify-content:center;gap:36px;margin-top:42px;flex-wrap:wrap;}}
-.hstat{{color:#fff;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;}}
-.hstat span{{color:{accent};font-size:16px;}}
-.section{{max-width:1100px;margin:0 auto;padding:84px 20px;}}
-.section-head{{text-align:center;max-width:600px;margin:0 auto 44px;}}
-.section-head .kicker{{color:{accent};font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;}}
-.section-head h2{{font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:900;margin-bottom:10px;}}
-.section-head p{{color:#76746c;font-size:15px;line-height:1.7;}}
-.svc-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:18px;}}
-.svc-card{{background:#fff;border:1px solid #ecebe7;border-radius:16px;padding:30px 20px;text-align:center;box-shadow:0 3px 14px rgba(38,37,31,.05);transition:.2s;}}
-.svc-card:hover{{transform:translateY(-3px);box-shadow:0 12px 28px rgba(38,37,31,.1);}}
-.svc-icon{{width:58px;height:58px;border-radius:14px;background:{accent}16;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px;}}
-.svc-card h3{{font-size:15px;font-weight:800;}}
-.about{{background:#faf9f6;}}
-.about-inner{{max-width:1100px;margin:0 auto;padding:84px 20px;display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center;}}
-@media(max-width:820px){{.about-inner{{grid-template-columns:1fr;}}}}
-.about-text .kicker{{color:{accent};font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;}}
-.about-text h2{{font-size:clamp(1.6rem,3.2vw,2.2rem);font-weight:900;margin-bottom:14px;}}
-.about-text p{{color:#76746c;line-height:1.8;margin-bottom:22px;}}
-.about-text ul{{list-style:none;display:flex;flex-direction:column;gap:12px;}}
-.about-text li{{display:flex;gap:12px;align-items:center;font-size:15px;font-weight:700;color:#42413d;}}
-.about-text li span{{width:26px;height:26px;background:{accent};color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}}
-.about-photo img{{width:100%;border-radius:20px;display:block;aspect-ratio:4/3.2;object-fit:cover;box-shadow:0 16px 40px rgba(38,37,31,.14);}}
-.contact{{text-align:center;}}
-.contact-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:8px;}}
-.contact-card{{background:#fff;border:1px solid #ecebe7;border-radius:16px;padding:30px 22px;box-shadow:0 3px 14px rgba(38,37,31,.05);}}
-.contact-card .ico{{font-size:26px;margin-bottom:10px;}}
-.contact-card h3{{font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9b9890;margin-bottom:7px;}}
-.contact-card p{{font-size:15px;font-weight:700;color:#26251f;line-height:1.6;}}
-.contact-card a{{color:{accent};text-decoration:none;}}
-.cta{{background:{accent};text-align:center;padding:76px 20px;}}
-.cta h2{{color:#fff;font-size:clamp(1.7rem,3.6vw,2.5rem);font-weight:900;margin-bottom:10px;}}
-.cta p{{color:rgba(255,255,255,.88);font-size:15.5px;margin-bottom:30px;}}
-.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ecebe7;box-shadow:0 -4px 18px rgba(0,0,0,.08);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
-.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:800;font-size:14px;padding:13px;border-radius:10px;text-decoration:none;}}
-.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#26251f;color:#fff;font-weight:700;font-size:13.5px;padding:13px;border-radius:10px;text-decoration:none;}}
-@media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}}}}
-</style></head><body>
-<div class="preview-bar">Free website preview for {name}.<a href="sms:{phone}">Text to claim it today</a></div>
-<nav><div class="nav-inner">
-  <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
+  <span class="nav-name">{name}</span>
   <div class="nav-links">
     <a href="#services">Services</a>
     <a href="#about">About</a>
-    <a href="#contact">Contact</a>
-    <a href="tel:{phone}" class="nav-call">{phone}</a>
+    <a href="#visit">Visit</a>
+    <a href="tel:{phone}" class="nav-book">Booking</a>
   </div>
 </div></nav>
 <section class="hero">
   <div class="hero-bg"></div><div class="hero-overlay"></div>
   <div class="hero-inner">
-    <div class="hero-badge">{cat_label} in {city if city else 'Your Area'}</div>
-    <h1>{headline}</h1>
+    <div class="hero-welcome">Welcome to</div>
+    <h1>{name}</h1>
     <p>{sub}</p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn btn-white">{sms_svg}Text Us</a>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+      <a href="tel:{phone}" class="btn btn-fill">Book Appointment</a>
+      <a href="sms:{phone}" class="btn btn-line">Text Us</a>
     </div>
   </div>
-  <div class="hero-stats">{''.join(f'<div class="hstat"><span>&#10003;</span>{t}</div>' for t in trust)}</div>
 </section>
+<div class="welcome">
+  <div class="w-card"><div class="ico">&#10047;</div><h3>Relaxation &amp; Care</h3><p>Every visit is designed to leave you feeling refreshed, pampered, and beautiful.</p></div>
+  <div class="w-card"><div class="ico">&#10047;</div><h3>Satisfaction First</h3><p>Your happiness is our priority. We are not done until you love the result.</p></div>
+  <div class="w-card"><div class="ico">&#10047;</div><h3>Qualified Specialists</h3><p>Skilled, experienced professionals using premium products and sterile tools.</p></div>
+</div>
 <section class="section" id="services">
-  <div class="section-head">
-    <div class="kicker">Our Services</div>
-    <h2>Everything You Need</h2>
-    <p>Professional {cat_label.lower()} services for {city if city else 'the local area'} and nearby communities.</p>
+  <div class="sec-head">
+    <div class="eyebrow">Our Menu</div>
+    <h2>Popular Services</h2>
   </div>
-  <div class="svc-grid">{svc_cards_soft}</div>
+  <div class="tiles">{beauty_tiles}</div>
 </section>
-<section class="about" id="about"><div class="about-inner">
-  <div class="about-text">
-    <div class="kicker">About Us</div>
-    <h2>Your Neighborhood {cat_label}</h2>
-    <p>{name} is proudly local to {city if city else 'your area'}. We built our reputation one happy customer at a time, with honest pricing and work we stand behind.</p>
-    <ul>{trust_checks}</ul>
+<section class="story" id="about"><div class="story-inner">
+  <div class="story-text">
+    <div class="eyebrow">About Us</div>
+    <h2>A Moment of <em>Harmony</em> in {city if city else 'Your Day'}</h2>
+    <p>{name} is a locally owned {cat_label.lower()} in {city if city else 'your area'} devoted to first-class service in a clean, calming space. Walk in as a guest, leave as a regular.</p>
+    <ul>{''.join(f'<li><span>&#10047;</span>{t}</li>' for t in trust)}</ul>
   </div>
-  <div class="about-photo"><img src="{photo_url}" alt="{name}"></div>
+  <div class="story-photo"><img src="{photo_url}" alt="{name}"></div>
 </div></section>
-<section class="section contact" id="contact">
-  <div class="section-head">
-    <div class="kicker">Contact Us</div>
-    <h2>We Would Love to Hear From You</h2>
-  </div>
-  <div class="contact-grid">
-    <div class="contact-card"><div class="ico">&#9742;</div><h3>Phone</h3><p><a href="tel:{phone}">{phone}</a></p></div>
-    {f'<div class="contact-card"><div class="ico">&#128205;</div><h3>Address</h3><p>{address}</p></div>' if address else ''}
-    <div class="contact-card"><div class="ico">&#128336;</div><h3>Hours</h3><p>Mon&ndash;Sat 8am&ndash;6pm</p></div>
-    <div class="contact-card"><div class="ico">&#127968;</div><h3>Service Area</h3><p>{city if city else 'Local Area'} &amp; Nearby</p></div>
-  </div>
+<section class="info" id="visit">
+  <div><h3>Contact</h3><p><a href="tel:{phone}">{phone}</a></p></div>
+  {f'<div><h3>Find Us</h3><p>{address}</p></div>' if address else ''}
+  <div><h3>Hours</h3><p>Mon&ndash;Sat 9:30am&ndash;7pm<br>Sun 11am&ndash;5pm</p></div>
 </section>
 <section class="cta">
-  <h2>Ready When You Are</h2>
-  <p>Call or text {name} today. Fast response, fair pricing, friendly service.</p>
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-    <a href="tel:{phone}" class="btn btn-white">{phone_svg}Call {phone}</a>
-    <a href="sms:{phone}" class="btn" style="background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.55);">{sms_svg}Send a Text</a>
+  <div class="eyebrow">We Cannot Wait to See You</div>
+  <h2>Book Your Visit Today</h2>
+  <p>Call or text {name} and treat yourself. You deserve it.</p>
+  <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <a href="tel:{phone}" class="btn btn-fill">Call {phone}</a>
+    <a href="sms:{phone}" class="btn btn-line">Send a Text</a>
   </div>
 </section>
 {footer_html}
 <div class="sticky-bar">
-  <a href="tel:{phone}" class="sticky-call">{phone_svg}Call Now</a>
+  <a href="tel:{phone}" class="sticky-call">Book Now</a>
+  <a href="sms:{phone}" class="sticky-claim">Claim This Site Free</a>
+</div>
+</body></html>"""
+
+    # ── Template 2: Pro performance — auto/trades (Chicago Auto Pros style) ───
+    else:
+        return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{name} | {cat_label} in {city or 'Your Area'}</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+html{{scroll-behavior:smooth;}}
+body{{font-family:'Barlow',sans-serif;color:#23272d;background:#fff;min-height:100vh;padding-bottom:70px;}}
+.preview-bar{{background:#0c0e11;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:600;}}
+.preview-bar a{{color:{accent};text-decoration:none;margin-left:6px;font-weight:700;}}
+.topbar{{background:#16191e;color:#aab2bc;font-size:12.5px;}}
+.topbar-inner{{max-width:1160px;margin:0 auto;padding:8px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}}
+.topbar a{{color:#fff;font-weight:700;text-decoration:none;}}
+.topbar a span{{color:{accent};}}
+nav{{background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.1);position:sticky;top:0;z-index:100;}}
+.nav-inner{{max-width:1160px;margin:0 auto;padding:0 20px;height:76px;display:flex;align-items:center;justify-content:space-between;}}
+.nav-brand{{display:flex;align-items:center;gap:11px;}}
+.nav-name{{font-family:'Oswald',sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em;text-transform:uppercase;color:#16191e;}}
+.nav-links{{display:flex;align-items:center;gap:26px;}}
+.nav-links a{{font-size:13.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#3d434b;text-decoration:none;}}
+.nav-links a:hover{{color:{accent};}}
+.nav-call{{background:{accent};color:#fff !important;font-weight:700;padding:12px 24px;letter-spacing:.06em;}}
+.hero{{position:relative;min-height:78vh;display:flex;align-items:center;}}
+.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
+.hero-overlay{{position:absolute;inset:0;background:linear-gradient(90deg,rgba(12,14,17,.88) 0%,rgba(12,14,17,.55) 60%,rgba(12,14,17,.3) 100%);}}
+.hero-inner{{position:relative;z-index:2;max-width:1160px;margin:0 auto;padding:90px 20px;width:100%;}}
+.hero-kicker{{display:inline-block;background:{accent};color:#fff;font-family:'Oswald',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;padding:7px 16px;margin-bottom:20px;}}
+.hero h1{{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(2.1rem,5.4vw,3.8rem);line-height:1.1;color:#fff;max-width:700px;margin-bottom:16px;letter-spacing:.01em;}}
+.hero p{{color:rgba(255,255,255,.85);font-size:1.05rem;line-height:1.7;max-width:560px;margin-bottom:30px;}}
+.btn{{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:14.5px;letter-spacing:.05em;text-transform:uppercase;padding:16px 30px;text-decoration:none;}}
+.btn-accent{{background:{accent};color:#fff;}}
+.btn-white{{background:#fff;color:#16191e;}}
+.btn-line{{border:2px solid rgba(255,255,255,.6);color:#fff;}}
+.trustline{{background:#16191e;}}
+.trustline-inner{{max-width:1160px;margin:0 auto;padding:22px 20px;display:flex;justify-content:center;gap:40px;flex-wrap:wrap;}}
+.trustline span{{color:#fff;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;}}
+.trustline b{{color:{accent};font-size:16px;}}
+.section{{max-width:1160px;margin:0 auto;padding:84px 20px;}}
+.sec-head{{margin-bottom:42px;}}
+.sec-head .kicker{{color:{accent};font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px;}}
+.sec-head h2{{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(1.7rem,3.6vw,2.5rem);color:#16191e;}}
+.pro-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px;}}
+.pro-card{{border:1px solid #e3e7ec;border-top:3px solid {accent};padding:30px 28px;background:#fff;transition:.2s;}}
+.pro-card:hover{{box-shadow:0 12px 30px rgba(22,25,30,.1);}}
+.pro-ico{{font-size:30px;margin-bottom:14px;}}
+.pro-card h3{{font-family:'Oswald',sans-serif;font-weight:600;text-transform:uppercase;font-size:16.5px;letter-spacing:.04em;color:#16191e;margin-bottom:9px;}}
+.pro-card p{{font-size:14px;color:#5b626c;line-height:1.7;margin-bottom:16px;}}
+.pro-card a{{color:{accent};font-weight:700;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;text-decoration:none;}}
+.why{{background:#16191e;}}
+.why-inner{{max-width:1160px;margin:0 auto;padding:84px 20px;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;}}
+@media(max-width:820px){{.why-inner{{grid-template-columns:1fr;}}}}
+.why-photo img{{width:100%;aspect-ratio:4/3.1;object-fit:cover;display:block;border:3px solid {accent};}}
+.why-text .kicker{{color:{accent};font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;}}
+.why-text h2{{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(1.6rem,3.2vw,2.2rem);color:#fff;margin-bottom:16px;}}
+.why-text p{{color:#aab2bc;line-height:1.8;margin-bottom:24px;}}
+.why-text ul{{list-style:none;display:flex;flex-direction:column;gap:13px;}}
+.why-text li{{display:flex;gap:12px;align-items:center;font-size:15px;font-weight:600;color:#fff;}}
+.why-text li span{{width:24px;height:24px;background:{accent};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}}
+.contact{{max-width:1160px;margin:0 auto;padding:84px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;}}
+.c-card{{border:1px solid #e3e7ec;padding:28px;}}
+.c-card h3{{font-family:'Oswald',sans-serif;font-weight:600;text-transform:uppercase;font-size:13px;letter-spacing:.12em;color:#8a919b;margin-bottom:8px;}}
+.c-card p{{font-size:15.5px;font-weight:600;color:#16191e;line-height:1.6;}}
+.c-card a{{color:{accent};text-decoration:none;font-weight:700;}}
+.cta{{background:{accent};}}
+.cta-inner{{max-width:1160px;margin:0 auto;padding:64px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;}}
+.cta h2{{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;color:#fff;font-size:clamp(1.5rem,3.2vw,2.2rem);}}
+.cta p{{color:rgba(255,255,255,.85);margin-top:6px;font-size:15px;}}
+.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e3e7ec;box-shadow:0 -4px 18px rgba(0,0,0,.1);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
+.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:700;font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;padding:14px;text-decoration:none;}}
+.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#16191e;color:#fff;font-weight:600;font-size:13px;letter-spacing:.03em;text-transform:uppercase;padding:14px;text-decoration:none;}}
+@media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}} .topbar-inner{{justify-content:center;}}}}
+</style></head><body>
+<div class="preview-bar">This is a FREE preview website built for {name}.<a href="sms:{phone}">Text us to claim it</a></div>
+<div class="topbar"><div class="topbar-inner">
+  <span>Serving {city if city else 'the local area'} &amp; surrounding &nbsp;&bull;&nbsp; Mon&ndash;Sat 8am&ndash;6pm</span>
+  <a href="tel:{phone}"><span>&#9742;</span> {phone}</a>
+</div></div>
+<nav><div class="nav-inner">
+  <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
+  <div class="nav-links">
+    <a href="#services">Services</a>
+    <a href="#why">Why Us</a>
+    <a href="#contact">Contact</a>
+    <a href="tel:{phone}" class="nav-call">Free Estimate</a>
+  </div>
+</div></nav>
+<section class="hero">
+  <div class="hero-bg"></div><div class="hero-overlay"></div>
+  <div class="hero-inner">
+    <div class="hero-kicker">{trust[0]}</div>
+    <h1>{city if city else 'Your'}-Based {cat_label} Experts</h1>
+    <p>{sub}</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="tel:{phone}" class="btn btn-accent">Call {phone}</a>
+      <a href="sms:{phone}" class="btn btn-white">Free Estimate</a>
+      <a href="sms:{phone}" class="btn btn-line">Text Us</a>
+    </div>
+  </div>
+</section>
+<div class="trustline"><div class="trustline-inner">
+  {''.join(f'<span><b>&#10003;</b>{t}</span>' for t in trust)}
+</div></div>
+<section class="section" id="services">
+  <div class="sec-head">
+    <div class="kicker">What We Do</div>
+    <h2>Our Services</h2>
+  </div>
+  <div class="pro-grid">{pro_cards}</div>
+</section>
+<section class="why" id="why"><div class="why-inner">
+  <div class="why-text">
+    <div class="kicker">Why {name}</div>
+    <h2>Done Right the First Time</h2>
+    <p>{name} is locally owned and operated in {city if city else 'your area'}. No call centers, no subcontractors, no runaround. You deal directly with the people doing the work.</p>
+    <ul>{trust_checks}</ul>
+  </div>
+  <div class="why-photo"><img src="{photo_url}" alt="{name}"></div>
+</div></section>
+<section class="contact" id="contact">
+  <div class="c-card"><h3>Phone</h3><p><a href="tel:{phone}">{phone}</a></p></div>
+  {f'<div class="c-card"><h3>Address</h3><p>{address}</p></div>' if address else ''}
+  <div class="c-card"><h3>Hours</h3><p>Mon&ndash;Sat 8am&ndash;6pm<br>Emergency? Just call.</p></div>
+  <div class="c-card"><h3>Service Area</h3><p>{city if city else 'Local Area'} &amp; surrounding communities</p></div>
+</section>
+<section class="cta"><div class="cta-inner">
+  <div><h2>Get Your Free Estimate</h2><p>Fast response. Upfront pricing. Quality guaranteed.</p></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <a href="tel:{phone}" class="btn btn-white">Call {phone}</a>
+    <a href="sms:{phone}" class="btn btn-line">Text Us</a>
+  </div>
+</div></section>
+{footer_html}
+<div class="sticky-bar">
+  <a href="tel:{phone}" class="sticky-call">Call Now</a>
   <a href="sms:{phone}" class="sticky-claim">Claim This Site Free</a>
 </div>
 </body></html>"""

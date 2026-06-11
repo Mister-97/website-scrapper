@@ -453,6 +453,61 @@ _DEFAULT_INDUSTRY = {
 
 import random
 
+# ── SVG icons (no emojis in previews — real icons only) ──────────────────────
+
+_ICON_PATHS = {
+    "check":    '<polyline points="20 6 9 17 4 12"/>',
+    "star":     '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    "scissors": '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>',
+    "pen":      '<path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+    "droplet":  '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+    "wind":     '<path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>',
+    "sun":      '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+    "zap":      '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    "shield":   '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    "leaf":     '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+    "home":     '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    "heart":    '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+    "key":      '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>',
+    "truck":    '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+    "wrench":   '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    "clipboard":'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    "utensils": '<path d="M3 2v7a4 4 0 0 0 8 0V2"/><line x1="7" y1="13" x2="7" y2="22"/><path d="M18 2c-1.5 2-2 4-2 6 0 2.5 1 4 2 4s2-1.5 2-4c0-2-.5-4-2-6z"/><line x1="18" y1="12" x2="18" y2="22"/>',
+    "award":    '<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
+    "diamond":  '<polygon points="12 2 22 12 12 22 2 12 12 2"/>',
+}
+
+def _icon(key: str, color: str, size: int = 24) -> str:
+    path = _ICON_PATHS.get(key, _ICON_PATHS["star"])
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" '
+            f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">{path}</svg>')
+
+_KEYWORD_ICONS = [
+    (("lock", "key", "deadbolt", "rekey"), "key"),
+    (("cut", "fade", "shave", "trim", "line up", "blowout", "haircut", "style", "extension"), "scissors"),
+    (("paint", "color", "art", "stain", "highlight", "tattoo", "cover-up", "touch-up", "flash", "design"), "pen"),
+    (("oil", "wash", "wax", "leak", "drain", "water", "irrigation", "pressure"), "droplet"),
+    (("ac ", "a/c", "air", "duct"), "wind"),
+    (("heat", "furnace"), "sun"),
+    (("electric", "light", "panel", "outlet", "rewir", "ev ", "charger"), "zap"),
+    (("pest", "termite", "bug", "ant", "rodent", "mosquito", "wasp", "protect", "coating", "ceramic"), "shield"),
+    (("lawn", "tree", "mulch", "plant", "landscap", "snow"), "leaf"),
+    (("roof", "floor", "gutter", "remodel", "home", "house", "move", "carpet", "tile", "hardwood", "laminate", "shingle", "storm", "window", "office"), "home"),
+    (("infant", "toddler", "kid", "child", "preschool", "school", "camp", "drop-in"), "heart"),
+    (("estimate", "consult", "inspect", "quote"), "clipboard"),
+    (("dine", "takeout", "cater", "delivery", "happy", "event"), "utensils"),
+    (("tire", "car", "auto", "vehicle", "transmission", "engine", "brake", "tow", "headlight", "detail"), "truck"),
+    (("repair", "install", "replace", "diagnostic", "mainten", "rotation"), "wrench"),
+]
+
+def _svc_icon(svc: str, color: str, size: int = 24) -> str:
+    s = svc.lower()
+    for keys, icon_key in _KEYWORD_ICONS:
+        if any(k in s for k in keys):
+            return _icon(icon_key, color, size)
+    return _icon("star", color, size)
+
+
 def generate_preview_html(lead: dict) -> str:
     name     = lead.get("name", "Your Business")
     phone    = lead.get("phone", "")
@@ -461,6 +516,12 @@ def generate_preview_html(lead: dict) -> str:
     logo_url = lead.get("logo_url", "")
     city     = (lead.get("location") or "").split(" IL")[0].strip()
     lead_id  = lead.get("id", 0)
+
+    # "Claim this site" buttons text YOUR Twilio number (so the reply hits the
+    # webhook and notifies you) — not the lead's own number
+    from urllib.parse import quote
+    claim_to  = load_config().get("twilio_from_number") or phone
+    claim_sms = f"sms:{claim_to}?&body=" + quote(f"I want to claim the website for {name}")
 
     accent    = CATEGORY_ACCENTS.get(category, "#6366f1")
     cat_label = category.title()
@@ -488,35 +549,8 @@ def generate_preview_html(lead: dict) -> str:
     ) if logo_url else (
         f'<div style="width:36px;height:36px;border-radius:8px;background:{accent};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:white;flex-shrink:0;">{name[0].upper()}</div>'
     )
-    logo_hero = (
-        f'<img src="{logo_url}" onerror="this.style.display=\'none\'" style="width:96px;height:96px;border-radius:20px;object-fit:cover;border:4px solid rgba(255,255,255,0.3);">'
-    ) if logo_url else (
-        f'<div style="width:96px;height:96px;border-radius:20px;background:rgba(255,255,255,0.2);border:4px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:900;color:white;">{name[0].upper()}</div>'
-    )
-
-    svc_cards_light = "".join(
-        f'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px 16px;text-align:center;"><div style="font-size:28px;margin-bottom:8px;">{icon}</div><div style="font-weight:700;font-size:14px;color:#111827;">{svc}</div></div>'
-        for svc, icon in services
-    )
-    svc_cards_dark = "".join(
-        f'<div style="background:#1f2937;border-radius:14px;padding:20px 16px;text-align:center;"><div style="font-size:28px;margin-bottom:8px;">{icon}</div><div style="font-weight:700;font-size:14px;color:#f9fafb;">{svc}</div></div>'
-        for svc, icon in services
-    )
-    trust_chips = "".join(
-        f'<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:100px;padding:8px 16px;font-size:13px;font-weight:600;color:#fff;"><span>&#10003;</span>{t}</div>'
-        for t in trust
-    )
-    trust_chips_dark = "".join(
-        f'<div style="display:inline-flex;align-items:center;gap:8px;background:#f9fafb;border-radius:100px;padding:10px 18px;font-size:13px;font-weight:700;color:#111827;"><span style="color:{accent};">&#10003;</span>{t}</div>'
-        for t in trust
-    )
-
     phone_svg = '<svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>'
     sms_svg  = '<svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>'
-    pin_svg  = '<svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/></svg>'
-
-    addr_line = f'<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.75);">{pin_svg}{address}</div>' if address else ''
-
     footer_html = f"""<footer style="background:#111827;color:#9ca3af;padding:40px 5%;text-align:center;">
   <div style="font-weight:800;font-size:18px;color:#fff;margin-bottom:4px;">{name}</div>
   <div style="font-size:13px;margin-bottom:4px;">{cat_label} in {city if city else 'Your Area'}</div>
@@ -524,7 +558,7 @@ def generate_preview_html(lead: dict) -> str:
   <div style="font-size:13px;margin-bottom:16px;"><a href="tel:{phone}" style="color:{accent};text-decoration:none;font-weight:700;">{phone}</a></div>
   <div style="border-top:1px solid #1f2937;padding-top:16px;font-size:12px;color:#4b5563;">
     &copy; {name}. This is a free preview website.
-    <a href="sms:{phone}" style="color:{accent};text-decoration:none;margin-left:8px;font-weight:600;">Claim it today.</a>
+    <a href="{claim_sms}" style="color:{accent};text-decoration:none;margin-left:8px;font-weight:600;">Claim it today.</a>
   </div>
 </footer>"""
 
@@ -538,10 +572,10 @@ def generate_preview_html(lead: dict) -> str:
         for svc, _ in services
     )
     pro_cards = "".join(
-        f'<div class="pro-card"><div class="pro-ico">{icon}</div><h3>{svc}</h3><p>Professional {svc.lower()} done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:{phone}">Free Estimate &rarr;</a></div>'
-        for svc, icon in services
+        f'<div class="pro-card"><div class="pro-ico">{_svc_icon(svc, accent, 30)}</div><h3>{svc}</h3><p>Professional {svc.lower()} done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:{phone}">Free Estimate &rarr;</a></div>'
+        for svc, _ in services
     )
-    trust_checks = "".join(f'<li><span>&#10003;</span>{t}</li>' for t in trust)
+    trust_checks = "".join(f'<li><span>{_icon("check", "#fff", 13)}</span>{t}</li>' for t in trust)
 
     # ── Template 0: Heritage grooming — barbershop/tattoo (The Chair style) ───
     if template == 0:
@@ -610,7 +644,7 @@ nav{{background:rgba(20,18,16,.96);border-bottom:1px solid rgba(241,233,216,.12)
 .sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;border:1px solid rgba(241,233,216,.4);color:var(--cream);font-weight:500;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;padding:14px;text-decoration:none;}}
 @media(max-width:700px){{.nav-links a:not(.nav-book){{display:none;}}}}
 </style></head><body>
-<div class="preview-bar">This is a FREE preview website built for {name}.<a href="sms:{phone}">Text us to claim it</a></div>
+<div class="preview-bar">This is a FREE preview website built for {name}.<a href="{claim_sms}">Text us to claim it</a></div>
 <nav><div class="nav-inner">
   <span class="nav-name">{name}</span>
   <div class="nav-links">
@@ -626,7 +660,7 @@ nav{{background:rgba(20,18,16,.96);border-bottom:1px solid rgba(241,233,216,.12)
     <div class="hero-eyebrow">{cat_label} &mdash; {city if city else 'Your Area'}</div>
     <h1>{name}</h1>
     <div class="hero-tagline">{headline}</div>
-    <div class="ornament">&#10045;</div>
+    <div class="ornament">{_icon("diamond", "#c2a05a", 15)}</div>
     <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
       <a href="tel:{phone}" class="btn btn-gold">Call to Book</a>
       <a href="sms:{phone}" class="btn btn-line">Text Us</a>
@@ -646,7 +680,7 @@ nav{{background:rgba(20,18,16,.96);border-bottom:1px solid rgba(241,233,216,.12)
     <div class="eyebrow">Our Philosophy</div>
     <h2>We Respect the Craft</h2>
     <p>{sub} At {name}, every visit is a ritual, not a rush job. Locally owned in {city if city else 'your area'}, we take the time to get it right.</p>
-    <ul>{''.join(f'<li><span>&#10045;</span>{t}</li>' for t in trust)}</ul>
+    <ul>{''.join(f'<li><span>{_icon("check", "#c2a05a", 15)}</span>{t}</li>' for t in trust)}</ul>
   </div>
 </div></section>
 <section class="visit" id="visit"><div class="visit-inner">
@@ -665,7 +699,7 @@ nav{{background:rgba(20,18,16,.96);border-bottom:1px solid rgba(241,233,216,.12)
 {footer_html}
 <div class="sticky-bar">
   <a href="tel:{phone}" class="sticky-call">Call to Book</a>
-  <a href="sms:{phone}" class="sticky-claim">Claim This Site Free</a>
+  <a href="{claim_sms}" class="sticky-claim">Claim This Site Free</a>
 </div>
 </body></html>"""
 
@@ -738,7 +772,7 @@ nav{{background:rgba(255,253,250,.96);backdrop-filter:blur(8px);border-bottom:1p
 .sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;border:1px solid var(--ink);color:var(--ink);font-weight:500;font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:14px;text-decoration:none;}}
 @media(max-width:700px){{.nav-links a:not(.nav-book){{display:none;}}}}
 </style></head><body>
-<div class="preview-bar">Free website preview for {name}.<a href="sms:{phone}">Text to claim it</a></div>
+<div class="preview-bar">Free website preview for {name}.<a href="{claim_sms}">Text to claim it</a></div>
 <nav><div class="nav-inner">
   <span class="nav-name">{name}</span>
   <div class="nav-links">
@@ -761,9 +795,9 @@ nav{{background:rgba(255,253,250,.96);backdrop-filter:blur(8px);border-bottom:1p
   </div>
 </section>
 <div class="welcome">
-  <div class="w-card"><div class="ico">&#10047;</div><h3>Relaxation &amp; Care</h3><p>Every visit is designed to leave you feeling refreshed, pampered, and beautiful.</p></div>
-  <div class="w-card"><div class="ico">&#10047;</div><h3>Satisfaction First</h3><p>Your happiness is our priority. We are not done until you love the result.</p></div>
-  <div class="w-card"><div class="ico">&#10047;</div><h3>Qualified Specialists</h3><p>Skilled, experienced professionals using premium products and sterile tools.</p></div>
+  <div class="w-card"><div class="ico">{_icon("heart", "#b08968", 28)}</div><h3>Relaxation &amp; Care</h3><p>Every visit is designed to leave you feeling refreshed, pampered, and beautiful.</p></div>
+  <div class="w-card"><div class="ico">{_icon("star", "#b08968", 28)}</div><h3>Satisfaction First</h3><p>Your happiness is our priority. We are not done until you love the result.</p></div>
+  <div class="w-card"><div class="ico">{_icon("award", "#b08968", 28)}</div><h3>Qualified Specialists</h3><p>Skilled, experienced professionals using premium products and sterile tools.</p></div>
 </div>
 <section class="section" id="services">
   <div class="sec-head">
@@ -777,7 +811,7 @@ nav{{background:rgba(255,253,250,.96);backdrop-filter:blur(8px);border-bottom:1p
     <div class="eyebrow">About Us</div>
     <h2>A Moment of <em>Harmony</em> in {city if city else 'Your Day'}</h2>
     <p>{name} is a locally owned {cat_label.lower()} in {city if city else 'your area'} devoted to first-class service in a clean, calming space. Walk in as a guest, leave as a regular.</p>
-    <ul>{''.join(f'<li><span>&#10047;</span>{t}</li>' for t in trust)}</ul>
+    <ul>{''.join(f'<li><span>{_icon("check", "#b08968", 15)}</span>{t}</li>' for t in trust)}</ul>
   </div>
   <div class="story-photo"><img src="{photo_url}" alt="{name}"></div>
 </div></section>
@@ -798,7 +832,7 @@ nav{{background:rgba(255,253,250,.96);backdrop-filter:blur(8px);border-bottom:1p
 {footer_html}
 <div class="sticky-bar">
   <a href="tel:{phone}" class="sticky-call">Book Now</a>
-  <a href="sms:{phone}" class="sticky-claim">Claim This Site Free</a>
+  <a href="{claim_sms}" class="sticky-claim">Claim This Site Free</a>
 </div>
 </body></html>"""
 
@@ -848,7 +882,7 @@ nav{{background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.1);position:sticky;top:0;z
 .pro-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px;}}
 .pro-card{{border:1px solid #e3e7ec;border-top:3px solid {accent};padding:30px 28px;background:#fff;transition:.2s;}}
 .pro-card:hover{{box-shadow:0 12px 30px rgba(22,25,30,.1);}}
-.pro-ico{{font-size:30px;margin-bottom:14px;}}
+.pro-ico{{margin-bottom:14px;display:flex;}}
 .pro-card h3{{font-family:'Oswald',sans-serif;font-weight:600;text-transform:uppercase;font-size:16.5px;letter-spacing:.04em;color:#16191e;margin-bottom:9px;}}
 .pro-card p{{font-size:14px;color:#5b626c;line-height:1.7;margin-bottom:16px;}}
 .pro-card a{{color:{accent};font-weight:700;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;text-decoration:none;}}
@@ -876,10 +910,10 @@ nav{{background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.1);position:sticky;top:0;z
 .sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#16191e;color:#fff;font-weight:600;font-size:13px;letter-spacing:.03em;text-transform:uppercase;padding:14px;text-decoration:none;}}
 @media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}} .topbar-inner{{justify-content:center;}}}}
 </style></head><body>
-<div class="preview-bar">This is a FREE preview website built for {name}.<a href="sms:{phone}">Text us to claim it</a></div>
+<div class="preview-bar">This is a FREE preview website built for {name}.<a href="{claim_sms}">Text us to claim it</a></div>
 <div class="topbar"><div class="topbar-inner">
   <span>Serving {city if city else 'the local area'} &amp; surrounding &nbsp;&bull;&nbsp; Mon&ndash;Sat 8am&ndash;6pm</span>
-  <a href="tel:{phone}"><span>&#9742;</span> {phone}</a>
+  <a href="tel:{phone}" style="display:inline-flex;align-items:center;gap:7px;">{phone_svg}{phone}</a>
 </div></div>
 <nav><div class="nav-inner">
   <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
@@ -904,7 +938,7 @@ nav{{background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.1);position:sticky;top:0;z
   </div>
 </section>
 <div class="trustline"><div class="trustline-inner">
-  {''.join(f'<span><b>&#10003;</b>{t}</span>' for t in trust)}
+  {''.join(f'<span>{_icon("check", accent, 16)}{t}</span>' for t in trust)}
 </div></div>
 <section class="section" id="services">
   <div class="sec-head">
@@ -938,7 +972,7 @@ nav{{background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.1);position:sticky;top:0;z
 {footer_html}
 <div class="sticky-bar">
   <a href="tel:{phone}" class="sticky-call">Call Now</a>
-  <a href="sms:{phone}" class="sticky-claim">Claim This Site Free</a>
+  <a href="{claim_sms}" class="sticky-claim">Claim This Site Free</a>
 </div>
 </body></html>"""
 

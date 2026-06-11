@@ -1,0 +1,7 @@
+{
+  "twilio_account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "twilio_auth_token": "your_auth_token",
+  "twilio_from_number": "+18005550100",
+  "notify_number": "+17085550123",
+  "base_url": "https://your-app.up.railway.app"
+}

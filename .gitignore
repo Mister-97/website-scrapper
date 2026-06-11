@@ -1,0 +1,15 @@
+# Secrets and data — never commit
+config.json
+leads.db
+no_website_leads.csv
+
+# Generated previews (rebuilt on demand)
+previews/*.html
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store

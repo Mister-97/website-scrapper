@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+playwright==1.60.0
+python-multipart
+requests

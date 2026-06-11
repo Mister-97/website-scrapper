@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeadGen Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', sans-serif; }
+  [x-cloak] { display: none !important; }
+  body { background: #f5f6fa; }
+  .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; font-size: 14px; font-weight: 500; transition: all .15s; cursor: pointer; }
+  .sidebar-active { background: #ede9fe; color: #5b21b6; }
+  .sidebar-inactive { color: #9ca3af; }
+  .sidebar-inactive:hover { color: #374151; background: #f3f4f6; }
+  .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; }
+  .btn-primary { background: #6366f1; color: white; font-weight: 600; border-radius: 10px; padding: 8px 16px; font-size: 14px; transition: all .15s; cursor: pointer; }
+  .btn-primary:hover { background: #5558e8; }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-ghost { color: #6b7280; font-weight: 500; border-radius: 10px; padding: 8px 16px; font-size: 14px; transition: all .15s; cursor: pointer; border: 1px solid #e5e7eb; background: white; }
+  .btn-ghost:hover { color: #111827; border-color: #d1d5db; background: #f9fafb; }
+  .input { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 9px 14px; font-size: 14px; color: #111827; outline: none; width: 100%; transition: border-color .15s; }
+  .input:focus { border-color: #6366f1; background: white; }
+  .input::placeholder { color: #9ca3af; }
+  .status-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .s-new       { background: #dbeafe; color: #1d4ed8; }
+  .s-contacted { background: #fef3c7; color: #b45309; }
+  .s-replied   { background: #ede9fe; color: #7c3aed; }
+  .s-closed    { background: #dcfce7; color: #15803d; }
+  .s-dead      { background: #f3f4f6; color: #9ca3af; }
+  .tag { background: #ede9fe; color: #6366f1; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal { background: white; border: 1px solid #e5e7eb; border-radius: 20px; padding: 28px; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+  .select { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 5px 10px; font-size: 12px; color: #374151; outline: none; cursor: pointer; }
+  .bulk-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1e1b4b; border: 1px solid #312e81; border-radius: 14px; padding: 12px 20px; display: flex; align-items: center; gap: 12px; z-index: 40; box-shadow: 0 8px 32px rgba(99,102,241,0.25); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+  .glow { box-shadow: 0 4px 24px rgba(99,102,241,0.1); }
+</style>
+</head>
+<body class="text-gray-800 min-h-screen flex" x-data="app()" x-init="init()">
+
+<!-- Sidebar -->
+<aside class="w-56 min-h-screen border-r border-gray-200 bg-white flex flex-col px-3 py-5 fixed left-0 top-0">
+  <div class="flex items-center gap-2.5 px-3 mb-8">
+    <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-sm font-black text-white">L</div>
+    <span class="font-bold text-sm tracking-tight text-gray-900">LeadGen</span>
+  </div>
+  <nav class="flex flex-col gap-1 flex-1">
+    <div @click="tab='dashboard'" :class="tab==='dashboard' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+      Overview
+    </div>
+    <div @click="tab='scraper'; pollScraper()" :class="tab==='scraper' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      Scraper
+      <span x-show="scraping" class="ml-auto w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+    </div>
+    <div @click="tab='leads'; loadLeads()" :class="tab==='leads' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
+      Leads
+      <span x-show="stats.total > 0" class="ml-auto text-xs font-bold text-indigo-400" x-text="stats.total"></span>
+    </div>
+    <div @click="tab='outreach'" :class="tab==='outreach' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+      Outreach
+    </div>
+    <div @click="tab='revenue'; loadDeals()" :class="tab==='revenue' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Revenue
+    </div>
+    <div @click="tab='settings'; loadSettings()" :class="tab==='settings' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Settings
+    </div>
+  </nav>
+  <div class="px-3 mt-4 border-t border-gray-100 pt-4">
+    <div class="text-xs text-gray-400 font-medium mb-1">SMS Sent</div>
+    <div class="text-lg font-bold text-gray-600" x-text="(stats.sms_sent || 0).toLocaleString()"></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="ml-56 flex-1 min-h-screen">
+
+<!-- OVERVIEW -->
+<div x-show="tab==='dashboard'" class="p-8">
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold mb-1 text-gray-900">Overview</h1>
+    <p class="text-gray-500 text-sm">Your lead generation pipeline at a glance.</p>
+  </div>
+
+  <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="card p-5 glow">
+      <div class="text-gray-600 text-xs font-semibold uppercase tracking-wider mb-3">Total Leads</div>
+      <div class="text-4xl font-black mb-1" x-text="(stats.total || 0).toLocaleString()"></div>
+      <div class="text-xs text-gray-600">scraped businesses</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-gray-600 text-xs font-semibold uppercase tracking-wider mb-3">SMS Sent</div>
+      <div class="text-4xl font-black text-indigo-400 mb-1" x-text="(stats.sms_sent || 0).toLocaleString()"></div>
+      <div class="text-xs text-gray-600">outreach messages</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-gray-600 text-xs font-semibold uppercase tracking-wider mb-3">Revenue This Month</div>
+      <div class="text-4xl font-black text-green-400 mb-1" x-text="'$' + (stats.this_month || 0).toLocaleString()"></div>
+      <div class="text-xs text-gray-600" x-text="(stats.deals || 0) + ' deals closed'"></div>
+    </div>
+    <div class="card p-5">
+      <div class="text-gray-600 text-xs font-semibold uppercase tracking-wider mb-3">Avg Deal Size</div>
+      <div class="text-4xl font-black text-yellow-400 mb-1" x-text="'$' + Math.round(stats.avg_deal || 0).toLocaleString()"></div>
+      <div class="text-xs text-gray-600">per website sold</div>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="card p-5 mb-6">
+    <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">Pipeline</div>
+    <div class="flex gap-3 flex-wrap">
+      <template x-for="[s, count] in Object.entries(stats.by_status || {})">
+        <div class="flex items-center gap-2.5 bg-gray-900/50 rounded-xl px-4 py-2.5 border border-gray-800">
+          <span :class="'status-badge s-' + s" x-text="s"></span>
+          <span class="font-bold text-lg" x-text="count"></span>
+        </div>
+      </template>
+      <div x-show="Object.keys(stats.by_status || {}).length === 0" class="text-gray-700 text-sm">No leads yet</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div class="card p-5">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">By Industry</div>
+      <canvas id="catChart" height="180"></canvas>
+    </div>
+    <div class="card p-5">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">By Location</div>
+      <canvas id="locChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- SCRAPER -->
+<div x-show="tab==='scraper'" x-cloak class="p-8">
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold mb-1">Scraper</h1>
+    <p class="text-gray-600 text-sm">Find businesses with no website across any industry and location.</p>
+  </div>
+
+  <div class="grid grid-cols-2 gap-5 mb-5">
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div class="text-xs font-semibold uppercase tracking-wider text-gray-500">Industries</div>
+        <div class="flex gap-2">
+          <button @click="selectedCats=[...allCategories]" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">All</button>
+          <span class="text-gray-700">·</span>
+          <button @click="selectedCats=[]" class="text-xs text-gray-500 hover:text-gray-400">None</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-y-2 gap-x-3">
+        <template x-for="cat in allCategories">
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-gray-200 transition-colors">
+            <input type="checkbox" :value="cat" x-model="selectedCats" class="rounded accent-indigo-500 w-3.5 h-3.5">
+            <span x-text="cat" class="capitalize leading-none"></span>
+          </label>
+        </template>
+      </div>
+    </div>
+
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div class="text-xs font-semibold uppercase tracking-wider text-gray-500">Locations</div>
+        <div class="flex gap-2">
+          <button @click="selectedLocs=[...allLocations]" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">All</button>
+          <span class="text-gray-700">·</span>
+          <button @click="selectedLocs=[]" class="text-xs text-gray-500 hover:text-gray-400">None</button>
+        </div>
+      </div>
+      <div class="space-y-2 mb-4">
+        <template x-for="loc in allLocations">
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-gray-200 transition-colors">
+            <input type="checkbox" :value="loc" x-model="selectedLocs" class="rounded accent-indigo-500 w-3.5 h-3.5">
+            <span x-text="loc" class="leading-none"></span>
+          </label>
+        </template>
+      </div>
+      <div class="flex gap-2">
+        <input x-model="customLoc" @keydown.enter="addCustomLoc()" placeholder="Add location..." class="input text-sm py-2">
+        <button @click="addCustomLoc()" class="btn-ghost text-sm px-3">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-4 mb-6">
+    <button @click="startScrape()" :disabled="scraping || !selectedCats.length || !selectedLocs.length" class="btn-primary px-6 py-2.5 flex items-center gap-2">
+      <span x-show="!scraping">Start Scraping</span>
+      <span x-show="scraping" class="flex items-center gap-2">
+        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+        Running...
+      </span>
+    </button>
+    <span class="text-sm text-gray-600" x-show="selectedCats.length && selectedLocs.length" x-text="`${selectedCats.length} industries × ${selectedLocs.length} locations`"></span>
+  </div>
+
+  <div x-show="scrapeLog.length > 0" class="card p-5">
+    <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-3">Live Log</div>
+    <div id="logBox" class="font-mono text-xs space-y-0.5 max-h-72 overflow-y-auto">
+      <template x-for="line in scrapeLog">
+        <div :class="line.includes('+') ? 'text-green-400' : line.includes('Error') ? 'text-red-400' : line.includes('complete') ? 'text-indigo-400 font-semibold' : 'text-gray-500'" x-text="line"></div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<!-- LEADS -->
+<div x-show="tab==='leads'" x-cloak class="p-8">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold mb-1">Leads</h1>
+      <p class="text-gray-600 text-sm" x-text="`${leads.length} businesses shown`"></p>
+    </div>
+    <div class="flex gap-2">
+      <button @click="exportCSV()" class="btn-ghost flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export CSV
+      </button>
+    </div>
+  </div>
+
+  <div class="flex gap-3 mb-5">
+    <input x-model="leadSearch" @input.debounce.400ms="loadLeads()" placeholder="Search name, phone, category..." class="input w-72">
+    <select x-model="leadStatus" @change="loadLeads()" class="select">
+      <option value="all">All statuses</option>
+      <option value="new">New</option>
+      <option value="contacted">Contacted</option>
+      <option value="replied">Replied</option>
+      <option value="closed">Closed</option>
+      <option value="dead">Dead</option>
+    </select>
+  </div>
+
+  <div class="card overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="border-b border-gray-900">
+          <th class="text-left px-4 py-3 w-8">
+            <input type="checkbox" @change="toggleSelectAll($event)" class="accent-indigo-500 rounded w-3.5 h-3.5">
+          </th>
+          <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Business</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Phone</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Category</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Location</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Status</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="lead in leads" :key="lead.id">
+          <tr class="border-b border-gray-900/50 hover:bg-white/[0.02] transition-colors group">
+            <td class="px-4 py-3">
+              <input type="checkbox" :value="lead.id" x-model="selectedIds" class="accent-indigo-500 rounded w-3.5 h-3.5">
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg overflow-hidden bg-gray-900 flex-shrink-0 flex items-center justify-center text-base font-bold text-gray-600">
+                  <img x-show="lead.logo_url" :src="lead.logo_url" class="w-full h-full object-cover" @error="$el.style.display='none'">
+                  <span x-show="!lead.logo_url" x-text="(lead.name||'?')[0].toUpperCase()"></span>
+                </div>
+                <div>
+                  <div class="text-sm font-semibold text-gray-100 leading-tight" x-text="lead.name"></div>
+                  <div class="text-xs text-gray-600 leading-tight mt-0.5 truncate max-w-48" x-text="lead.address"></div>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3 font-mono text-sm text-gray-400" x-text="lead.phone"></td>
+            <td class="px-4 py-3"><span class="tag capitalize" x-text="lead.category"></span></td>
+            <td class="px-4 py-3 text-sm text-gray-500" x-text="lead.location"></td>
+            <td class="px-4 py-3">
+              <select :value="lead.status" @change="updateStatus(lead, $event.target.value)" :class="'status-badge s-' + lead.status + ' select border-0 capitalize'" style="background:transparent;">
+                <option value="new">new</option>
+                <option value="contacted">contacted</option>
+                <option value="replied">replied</option>
+                <option value="closed">closed</option>
+                <option value="dead">dead</option>
+              </select>
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <a :href="lead.maps_url" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">Maps</a>
+                <a x-show="lead.preview_url" :href="lead.preview_url" target="_blank" class="text-xs text-green-400 hover:text-green-300 font-medium">Preview</a>
+                <button x-show="!lead.preview_url" @click="generatePreview(lead)" class="text-xs text-gray-500 hover:text-gray-300">Gen Preview</button>
+                <button @click="openNotes(lead)" class="text-xs text-gray-500 hover:text-gray-300">Notes</button>
+                <button @click="quickDeal(lead)" class="text-xs text-green-400 hover:text-green-300 font-medium">+ Deal</button>
+              </div>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="leads.length === 0">
+          <td colspan="7" class="px-4 py-20 text-center">
+            <div class="text-gray-700 text-sm">No leads yet. Run the scraper to get started.</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- OUTREACH -->
+<div x-show="tab==='outreach'" x-cloak class="p-8">
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold mb-1">SMS Outreach</h1>
+    <p class="text-gray-600 text-sm">Send personalized texts to your leads via Twilio.</p>
+  </div>
+
+  <!-- Sequence status bar -->
+  <div class="card p-4 flex items-center justify-between mb-5">
+    <div class="flex items-center gap-6">
+      <div>
+        <div class="text-xs text-gray-600 mb-0.5">Active in sequence</div>
+        <div class="text-2xl font-bold text-indigo-400" x-text="seqStatus.active || 0"></div>
+      </div>
+      <div>
+        <div class="text-xs text-gray-600 mb-0.5">Ready to send now</div>
+        <div class="text-2xl font-bold text-yellow-400" x-text="seqStatus.due || 0"></div>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button @click="processSequence()" :disabled="seqProcessing || seqStatus.due === 0" class="btn-primary flex items-center gap-2">
+        <span x-show="!seqProcessing">Send Due Follow-ups</span>
+        <span x-show="seqProcessing" class="flex items-center gap-2">
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+          Sending...
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Sequence steps -->
+  <div class="card p-5 mb-5">
+    <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">The 4-Text Sequence</div>
+    <div class="space-y-3">
+      <div class="flex gap-3 items-start">
+        <div class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+        <div>
+          <div class="text-xs text-gray-500 mb-1">Day 0 (immediately)</div>
+          <div class="text-sm text-gray-300">Hey I was searching for {name} but couldn't find a website, do you guys have one?</div>
+        </div>
+      </div>
+      <div class="flex gap-3 items-start">
+        <div class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+        <div>
+          <div class="text-xs text-gray-500 mb-1">Day 1</div>
+          <div class="text-sm text-gray-300">Yeah I actually built you a free preview to show you what it could look like. Want to see it? {preview_url}</div>
+        </div>
+      </div>
+      <div class="flex gap-3 items-start">
+        <div class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</div>
+        <div>
+          <div class="text-xs text-gray-500 mb-1">Day 3</div>
+          <div class="text-sm text-gray-300">No worries if not, just didn't want you losing customers to competitors who have sites.</div>
+        </div>
+      </div>
+      <div class="flex gap-3 items-start">
+        <div class="w-6 h-6 rounded-full bg-yellow-900 text-yellow-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</div>
+        <div>
+          <div class="text-xs text-gray-500 mb-1">Day 5 (closer)</div>
+          <div class="text-sm text-gray-300">Last one I promise. I'm about to give this slot to another {category} in {city}, wanted to check if you wanted it first.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-5">
+    <div class="card p-5">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">One-off Message</div>
+      <textarea x-model="smsTemplate" rows="6" class="input resize-none text-sm mb-3" placeholder="Write your message...&#10;&#10;Use {name} for business name."></textarea>
+      <div class="text-xs text-gray-600 mb-4">
+        Variables: <span class="text-indigo-400 font-mono">{name}</span> = business name
+      </div>
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Preview</div>
+      <div class="bg-gray-900/50 rounded-xl p-4 text-sm text-gray-300 leading-relaxed border border-gray-800" x-text="smsTemplate.replace('{name}', 'Apex Nail Lounge') || 'No message yet'"></div>
+    </div>
+
+    <div class="card p-5">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">Select Recipients</div>
+      <div class="space-y-2 mb-4">
+        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+          <input type="radio" x-model="smsTarget" value="new" class="accent-indigo-500"> All <span class="status-badge s-new">new</span> leads
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+          <input type="radio" x-model="smsTarget" value="contacted" class="accent-indigo-500"> All <span class="status-badge s-contacted">contacted</span> (follow-up)
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+          <input type="radio" x-model="smsTarget" value="selected" class="accent-indigo-500"> Selected leads only
+          <span x-show="selectedIds.length > 0" class="text-indigo-400 font-bold text-xs" x-text="`(${selectedIds.length})`"></span>
+        </label>
+      </div>
+
+      <div class="bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-800">
+        <div class="text-xs text-gray-600 mb-2">Recipients</div>
+        <div class="text-2xl font-bold" x-text="smsRecipientCount"></div>
+        <div class="text-xs text-gray-600 mt-1" x-text="'~$' + (smsRecipientCount * 0.0079).toFixed(2) + ' Twilio cost'"></div>
+      </div>
+
+      <button @click="sendSMS()" :disabled="smsSending || !smsTemplate || smsRecipientCount === 0" class="btn-primary w-full py-2.5 flex items-center justify-center gap-2">
+        <span x-show="!smsSending">Send SMS</span>
+        <span x-show="smsSending" class="flex items-center gap-2">
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+          Sending...
+        </span>
+      </button>
+      <div x-show="smsResult" class="mt-3 text-sm text-center" :class="smsResult?.ok ? 'text-green-400' : 'text-red-400'" x-text="smsResult?.ok ? `Sent ${smsResult.sent} texts!` : smsResult?.error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- REVENUE -->
+<div x-show="tab==='revenue'" x-cloak class="p-8">
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-bold mb-1">Revenue</h1>
+      <p class="text-gray-600 text-sm">Track your website deals and income.</p>
+    </div>
+    <button @click="showDealModal=true" class="btn-primary flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Log Deal
+    </button>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="card p-5">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-3">Total Revenue</div>
+      <div class="text-4xl font-black text-green-400" x-text="'$' + (stats.revenue || 0).toLocaleString()"></div>
+    </div>
+    <div class="card p-5">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-3">This Month</div>
+      <div class="text-4xl font-black text-indigo-400" x-text="'$' + (stats.this_month || 0).toLocaleString()"></div>
+    </div>
+    <div class="card p-5">
+      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-3">Avg Deal</div>
+      <div class="text-4xl font-black text-yellow-400" x-text="'$' + Math.round(stats.avg_deal || 0).toLocaleString()"></div>
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="border-b border-gray-900">
+          <th class="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Business</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Amount</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Date</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Notes</th>
+          <th class="px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="deal in deals" :key="deal.id">
+          <tr class="border-b border-gray-900/50 hover:bg-white/[0.02]">
+            <td class="px-5 py-3.5 font-semibold text-sm" x-text="deal.business"></td>
+            <td class="px-5 py-3.5 font-bold text-green-400" x-text="'$' + Number(deal.amount).toLocaleString()"></td>
+            <td class="px-5 py-3.5 text-sm text-gray-500" x-text="deal.date"></td>
+            <td class="px-5 py-3.5 text-sm text-gray-500" x-text="deal.notes"></td>
+            <td class="px-5 py-3.5 text-right">
+              <button @click="deleteDeal(deal.id)" class="text-xs text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100">Remove</button>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="deals.length === 0">
+          <td colspan="5" class="px-5 py-16 text-center text-gray-700 text-sm">No deals logged yet.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div x-show="tab==='settings'" x-cloak class="p-8 max-w-xl">
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold mb-1">Settings</h1>
+    <p class="text-gray-600 text-sm">Configure your Twilio credentials for SMS outreach.</p>
+  </div>
+
+  <div class="card p-6 space-y-4">
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Twilio Account SID</label>
+      <input x-model="settings.twilio_account_sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" class="input">
+    </div>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Twilio Auth Token</label>
+      <input x-model="settings.twilio_auth_token" type="password" placeholder="••••••••••••••••••••••••••••••••" class="input">
+    </div>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">From Number (E.164)</label>
+      <input x-model="settings.twilio_from_number" placeholder="+17735550100" class="input">
+    </div>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Your Cell (reply notifications)</label>
+      <input x-model="settings.notify_number" placeholder="+17085551234" class="input">
+      <p class="text-xs text-gray-600 mt-1">When a lead replies, you get a text here instantly.</p>
+    </div>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Public Base URL</label>
+      <input x-model="settings.base_url" placeholder="https://your-app.up.railway.app" class="input">
+      <p class="text-xs text-gray-600 mt-1">Where this app is reachable from the internet. Used to build preview links in texts and to verify Twilio webhooks. Set your Twilio number's SMS webhook to this URL + /api/webhooks/sms/reply</p>
+    </div>
+    <button @click="saveSettings()" class="btn-primary px-6 py-2.5">Save Settings</button>
+    <div x-show="settingsSaved" class="text-green-400 text-sm">Saved.</div>
+  </div>
+
+  <div class="card p-6 mt-4">
+    <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Get Twilio credentials</div>
+    <p class="text-sm text-gray-500 leading-relaxed">Sign up at twilio.com, get your Account SID and Auth Token from the Console dashboard. Buy a phone number (~$1.15/mo). SMS costs $0.0079 per message.</p>
+  </div>
+</div>
+
+</main>
+
+<!-- BULK ACTION BAR -->
+<div x-show="selectedIds.length > 0" x-cloak class="bulk-bar">
+  <span class="text-sm font-semibold text-indigo-300" x-text="`${selectedIds.length} selected`"></span>
+  <div class="w-px h-4 bg-gray-700"></div>
+  <select x-model="bulkStatusVal" class="select">
+    <option value="">Set status...</option>
+    <option value="new">New</option>
+    <option value="contacted">Contacted</option>
+    <option value="replied">Replied</option>
+    <option value="closed">Closed</option>
+    <option value="dead">Dead</option>
+  </select>
+  <button @click="applyBulkStatus()" x-show="bulkStatusVal" class="btn-primary text-xs py-1.5 px-3">Apply</button>
+  <button @click="generateBulkPreviews()" class="btn-ghost text-xs py-1.5 px-3">Gen Previews</button>
+  <button @click="startSequence()" class="btn-primary text-xs py-1.5 px-3 bg-purple-700 hover:bg-purple-600">Start Sequence</button>
+  <button @click="openBulkSMS()" class="btn-primary text-xs py-1.5 px-3 bg-green-700 hover:bg-green-600">SMS Selected</button>
+  <button @click="selectedIds=[]" class="text-gray-600 hover:text-gray-400 text-xs">Clear</button>
+</div>
+
+<!-- NOTES MODAL -->
+<div x-show="notesModal" x-cloak class="modal-bg" @click.self="notesModal=false">
+  <div class="modal">
+    <h2 class="font-bold text-lg mb-1" x-text="editLead?.name"></h2>
+    <p class="text-xs text-gray-600 mb-4">Notes</p>
+    <textarea x-model="editNotes" rows="5" class="input resize-none text-sm mb-4"></textarea>
+    <div class="flex gap-2">
+      <button @click="saveNotes()" class="btn-primary flex-1 py-2.5">Save</button>
+      <button @click="notesModal=false" class="btn-ghost flex-1 py-2.5">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- DEAL MODAL -->
+<div x-show="showDealModal" x-cloak class="modal-bg" @click.self="showDealModal=false">
+  <div class="modal">
+    <h2 class="font-bold text-lg mb-4">Log a Deal</h2>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Business Name</label>
+        <input x-model="newDeal.business" class="input" placeholder="Apex Nail Lounge">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Amount</label>
+        <input x-model="newDeal.amount" type="number" class="input" placeholder="500">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Date</label>
+        <input x-model="newDeal.date" type="date" class="input">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Notes (optional)</label>
+        <input x-model="newDeal.notes" class="input" placeholder="Paid deposit, building this week">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button @click="submitDeal()" class="btn-primary flex-1 py-2.5">Save Deal</button>
+      <button @click="showDealModal=false" class="btn-ghost flex-1 py-2.5">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK SMS MODAL -->
+<div x-show="bulkSMSModal" x-cloak class="modal-bg" @click.self="bulkSMSModal=false">
+  <div class="modal">
+    <h2 class="font-bold text-lg mb-1">SMS to Selected Leads</h2>
+    <p class="text-xs text-gray-600 mb-4" x-text="`Sending to ${selectedIds.length} businesses`"></p>
+    <textarea x-model="smsTemplate" rows="5" class="input resize-none text-sm mb-2" placeholder="Hey {name}, I built a free website preview for you..."></textarea>
+    <div class="text-xs text-gray-600 mb-4">Use <span class="text-indigo-400 font-mono">{name}</span> for business name</div>
+    <div class="flex gap-2">
+      <button @click="sendBulkSMS()" :disabled="smsSending" class="btn-primary flex-1 py-2.5">Send</button>
+      <button @click="bulkSMSModal=false" class="btn-ghost flex-1 py-2.5">Cancel</button>
+    </div>
+    <div x-show="smsResult" class="mt-3 text-sm text-center" :class="smsResult?.ok ? 'text-green-400' : 'text-red-400'" x-text="smsResult?.ok ? `Sent ${smsResult.sent} texts!` : smsResult?.error"></div>
+  </div>
+</div>
+
+<script>
+function app() {
+  return {
+    tab: 'dashboard',
+    stats: {},
+    leads: [],
+    deals: [],
+    selectedIds: [],
+    bulkStatusVal: '',
+    scraping: false,
+    scrapeLog: [],
+    leadSearch: '',
+    leadStatus: 'all',
+    notesModal: false,
+    showDealModal: false,
+    bulkSMSModal: false,
+    editLead: null,
+    editNotes: '',
+    newDeal: { business: '', amount: '', date: new Date().toISOString().split('T')[0], notes: '' },
+    customLoc: '',
+    smsTemplate: "Hey, did you know {name} doesn't show up when people search for you online?",
+    seqStatus: { active: 0, due: 0 },
+    seqProcessing: false,
+    smsTarget: 'new',
+    smsSending: false,
+    smsResult: null,
+    settings: { twilio_account_sid: '', twilio_auth_token: '', twilio_from_number: '', notify_number: '', base_url: '' },
+    settingsSaved: false,
+    catChart: null,
+    locChart: null,
+
+    allCategories: ['restaurant','nail salon','barber shop','hair salon','auto repair','plumber','electrician','landscaping','daycare','tattoo shop','dry cleaner','locksmith','pest control','painting contractor','flooring','roofing','hvac','cleaning service'],
+    allLocations: ['Naperville IL','Schaumburg IL','Elmhurst IL','Orland Park IL','Bolingbrook IL','Aurora IL','Joliet IL','Oak Park IL','Downers Grove IL'],
+    selectedCats: [],
+    selectedLocs: [],
+
+    get smsRecipientCount() {
+      if (this.smsTarget === 'selected') return this.selectedIds.length;
+      const s = this.stats.by_status || {};
+      return s[this.smsTarget] || 0;
+    },
+
+    async init() {
+      await this.loadStats();
+      await this.loadSeqStatus();
+      this.renderCharts();
+      setInterval(() => this.pollScraper(), 2500);
+      setInterval(() => this.loadSeqStatus(), 30000);
+    },
+
+    async loadStats() {
+      const r = await fetch('/api/stats');
+      this.stats = await r.json();
+    },
+
+    renderCharts() {
+      this.$nextTick(() => {
+        const catEl = document.getElementById('catChart');
+        const locEl = document.getElementById('locChart');
+        if (!catEl || !locEl) return;
+        if (this.catChart) this.catChart.destroy();
+        if (this.locChart) this.locChart.destroy();
+        const catData = this.stats.by_category || [];
+        const locData = this.stats.by_location || [];
+        const gridColor = '#f3f4f6';
+        const tickColor = '#9ca3af';
+        this.catChart = new Chart(catEl, {
+          type: 'bar',
+          data: { labels: catData.map(d => d.category), datasets: [{ data: catData.map(d => d.cnt), backgroundColor: '#4f46e5', borderRadius: 6, borderSkipped: false }] },
+          options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } } } }
+        });
+        this.locChart = new Chart(locEl, {
+          type: 'doughnut',
+          data: { labels: locData.map(d => d.location), datasets: [{ data: locData.map(d => d.cnt), backgroundColor: ['#4f46e5','#7c3aed','#a21caf','#be185d','#b45309','#0369a1','#047857','#0f766e','#1d4ed8'] }] },
+          options: { plugins: { legend: { labels: { color: tickColor, font: { size: 11 }, boxWidth: 10 } } }, cutout: '65%' }
+        });
+      });
+    },
+
+    async startScrape() {
+      if (this.scraping) return;
+      this.scraping = true;
+      this.scrapeLog = [];
+      await fetch('/api/scrape/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categories: this.selectedCats, locations: this.selectedLocs }) });
+    },
+
+    async pollScraper() {
+      if (this.tab !== 'scraper' && !this.scraping) return;
+      const r = await fetch('/api/scrape/status');
+      const data = await r.json();
+      this.scrapeLog = data.log;
+      if (this.scraping && !data.running) {
+        this.scraping = false;
+        await this.loadStats();
+        this.renderCharts();
+      }
+      if (data.running) {
+        this.$nextTick(() => { const b = document.getElementById('logBox'); if (b) b.scrollTop = b.scrollHeight; });
+      }
+    },
+
+    addCustomLoc() {
+      const loc = this.customLoc.trim();
+      if (loc && !this.allLocations.includes(loc)) { this.allLocations.push(loc); this.selectedLocs.push(loc); }
+      this.customLoc = '';
+    },
+
+    async loadLeads() {
+      const p = new URLSearchParams();
+      if (this.leadStatus !== 'all') p.append('status', this.leadStatus);
+      if (this.leadSearch) p.append('search', this.leadSearch);
+      const r = await fetch('/api/leads?' + p);
+      this.leads = await r.json();
+    },
+
+    toggleSelectAll(e) {
+      this.selectedIds = e.target.checked ? this.leads.map(l => l.id) : [];
+    },
+
+    async updateStatus(lead, status) {
+      lead.status = status;
+      await fetch('/api/leads/' + lead.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+      await this.loadStats();
+    },
+
+    async applyBulkStatus() {
+      if (!this.bulkStatusVal || !this.selectedIds.length) return;
+      await fetch('/api/leads/bulk-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: this.selectedIds, status: this.bulkStatusVal }) });
+      this.bulkStatusVal = '';
+      this.selectedIds = [];
+      await this.loadLeads();
+      await this.loadStats();
+    },
+
+    async generatePreview(lead) {
+      const r = await fetch('/api/preview/generate/' + lead.id, { method: 'POST' });
+      const data = await r.json();
+      if (data.ok) { lead.preview_url = data.preview_url; }
+    },
+
+    async generateBulkPreviews() {
+      await fetch('/api/preview/generate-bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: this.selectedIds }) });
+      await this.loadLeads();
+    },
+
+    exportCSV() {
+      const url = '/api/leads/export' + (this.leadStatus !== 'all' ? '?status=' + this.leadStatus : '');
+      window.location.href = url;
+    },
+
+    openNotes(lead) { this.editLead = lead; this.editNotes = lead.notes || ''; this.notesModal = true; },
+    async saveNotes() {
+      await fetch('/api/leads/' + this.editLead.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: this.editNotes }) });
+      this.editLead.notes = this.editNotes;
+      this.notesModal = false;
+    },
+
+    quickDeal(lead) {
+      this.newDeal = { business: lead.name, amount: '', date: new Date().toISOString().split('T')[0], notes: '', lead_id: lead.id };
+      this.showDealModal = true;
+    },
+
+    async loadDeals() {
+      const r = await fetch('/api/deals');
+      this.deals = await r.json();
+      await this.loadStats();
+    },
+
+    async submitDeal() {
+      if (!this.newDeal.business || !this.newDeal.amount) return;
+      await fetch('/api/deals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.newDeal) });
+      this.showDealModal = false;
+      this.newDeal = { business: '', amount: '', date: new Date().toISOString().split('T')[0], notes: '' };
+      await this.loadDeals();
+    },
+
+    async deleteDeal(id) {
+      await fetch('/api/deals/' + id, { method: 'DELETE' });
+      await this.loadDeals();
+    },
+
+    openBulkSMS() { this.smsResult = null; this.bulkSMSModal = true; },
+
+    async sendBulkSMS() {
+      this.smsSending = true;
+      this.smsResult = null;
+      const r = await fetch('/api/sms/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: this.selectedIds, message: this.smsTemplate }) });
+      this.smsResult = await r.json();
+      this.smsSending = false;
+      if (this.smsResult.ok) { this.selectedIds = []; await this.loadStats(); }
+    },
+
+    async sendSMS() {
+      this.smsSending = true;
+      this.smsResult = null;
+      let ids = [];
+      if (this.smsTarget === 'selected') {
+        ids = this.selectedIds;
+      } else {
+        const r = await fetch('/api/leads?status=' + this.smsTarget);
+        const rows = await r.json();
+        ids = rows.map(l => l.id);
+      }
+      const r = await fetch('/api/sms/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, message: this.smsTemplate }) });
+      this.smsResult = await r.json();
+      this.smsSending = false;
+      if (this.smsResult.ok) await this.loadStats();
+    },
+
+    async loadSettings() {
+      const r = await fetch('/api/settings');
+      this.settings = await r.json();
+    },
+
+    async loadSeqStatus() {
+      const r = await fetch('/api/sequence/status');
+      this.seqStatus = await r.json();
+    },
+
+    async startSequence() {
+      if (!this.selectedIds.length) return;
+      const r = await fetch('/api/sequence/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: this.selectedIds }) });
+      const data = await r.json();
+      if (data.ok) {
+        alert(`Sequence started for ${data.sent} leads. Text 1 sent now. Follow-ups will send automatically over the next 5 days when you click "Send Due Follow-ups".`);
+        this.selectedIds = [];
+        await this.loadSeqStatus();
+        await this.loadStats();
+      } else {
+        alert(data.error);
+      }
+    },
+
+    async processSequence() {
+      this.seqProcessing = true;
+      const r = await fetch('/api/sequence/process', { method: 'POST' });
+      const data = await r.json();
+      this.seqProcessing = false;
+      await this.loadSeqStatus();
+      await this.loadStats();
+      if (data.ok) alert(`Sent ${data.processed} follow-up texts.`);
+    },
+
+    async saveSettings() {
+      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.settings) });
+      this.settingsSaved = true;
+      setTimeout(() => this.settingsSaved = false, 2000);
+    },
+  }
+}
+</script>
+</body>
+</html>

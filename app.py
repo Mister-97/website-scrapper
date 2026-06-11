@@ -511,136 +511,162 @@ def generate_preview_html(lead: dict) -> str:
   </div>
 </footer>"""
 
-    # Shared building blocks for the redesigned templates
-    words = headline.split()
-    headline_hl = (" ".join(words[:-1]) + f' <span class="hl">{words[-1]}</span>') if len(words) > 1 else headline
-
-    marq_items = "".join(f"<span>{svc}</span>" for svc, _ in services)
-
-    svc_rows_bold = "".join(
-        f'<div class="svc"><span class="svc-num">{str(i+1).zfill(2)}</span><span class="svc-name">{svc}</span><span class="svc-ico">{icon}</span></div>'
-        for i, (svc, icon) in enumerate(services)
-    )
-    svc_rows_dark = "".join(
-        f'<div class="row"><span class="row-num">{str(i+1).zfill(2)}</span><span class="row-name">{svc}</span><span class="row-ico">{icon}</span></div>'
-        for i, (svc, icon) in enumerate(services)
-    )
-    svc_cards_warm = "".join(
-        f'<div class="card"><div class="card-ico">{icon}</div><div class="card-name">{svc}</div></div>'
+    # Shared building blocks for the three traditional templates
+    svc_cards_classic = "".join(
+        f'<div class="svc-card"><div class="svc-icon">{icon}</div><h3>{svc}</h3><p>Professional {svc.lower()} done right, on time, and at a fair price.</p></div>'
         for svc, icon in services
     )
+    svc_cards_corp = "".join(
+        f'<div class="svc-card"><div class="svc-icon">{icon}</div><div><h3>{svc}</h3><p>Quality {svc.lower()} backed by our satisfaction guarantee.</p></div></div>'
+        for svc, icon in services
+    )
+    svc_cards_soft = "".join(
+        f'<div class="svc-card"><div class="svc-icon">{icon}</div><h3>{svc}</h3></div>'
+        for svc, icon in services
+    )
+    trust_checks = "".join(f'<li><span>&#10003;</span>{t}</li>' for t in trust)
 
-    # ── Template 0: "Poster" — Anton display caps, full-bleed photo, marquee ──
+    # ── Template 0: Classic contractor — utility bar, overlay hero, 3-col cards ──
     if template == 0:
         return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{name} | {cat_label} in {city or 'Your Area'}</title>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box;}}
 html{{scroll-behavior:smooth;}}
-body{{font-family:'Manrope',sans-serif;background:#101010;color:#181818;min-height:100vh;padding-bottom:74px;}}
-.disp{{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;}}
-.preview-bar{{background:#181818;color:#fff;text-align:center;padding:9px 20px;font-size:12px;font-weight:600;letter-spacing:.02em;}}
-.preview-bar a{{color:{accent};text-decoration:none;margin-left:8px;font-weight:800;}}
-nav{{position:absolute;top:38px;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:18px 5%;}}
-.nav-brand{{display:flex;align-items:center;gap:10px;}}
-.nav-name{{font-family:'Anton';font-size:17px;letter-spacing:.06em;text-transform:uppercase;color:#fff;}}
-.nav-phone{{display:inline-flex;align-items:center;gap:7px;background:{accent};color:#fff;font-weight:800;font-size:13px;padding:10px 20px;border-radius:4px;text-decoration:none;}}
-.hero{{position:relative;min-height:92vh;display:flex;align-items:flex-end;overflow:hidden;}}
-.hero-bg{{position:absolute;inset:0;background-image:url('{photo_url}');background-size:cover;background-position:center;}}
-.hero-shade{{position:absolute;inset:0;background:linear-gradient(180deg,rgba(16,16,16,.45) 0%,rgba(16,16,16,.1) 40%,rgba(16,16,16,.92) 100%);}}
-.hero-inner{{position:relative;z-index:2;width:100%;padding:0 5% 64px;}}
-.hero-kicker{{display:inline-block;background:{accent};color:#fff;font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;padding:7px 16px;margin-bottom:22px;}}
-.hero h1{{font-family:'Anton';font-weight:400;text-transform:uppercase;font-size:clamp(2.8rem,8.5vw,6rem);line-height:.96;letter-spacing:.01em;color:#fff;max-width:13ch;margin-bottom:18px;}}
-.hero h1 .hl{{color:{accent};}}
-.hero p{{color:rgba(255,255,255,.78);font-size:1.05rem;line-height:1.65;max-width:520px;margin-bottom:30px;font-weight:500;}}
-.hero-btns{{display:flex;gap:12px;flex-wrap:wrap;}}
-.btn-a{{display:inline-flex;align-items:center;gap:9px;background:{accent};color:#fff;font-weight:800;font-size:15px;padding:17px 34px;border-radius:4px;text-decoration:none;}}
-.btn-b{{display:inline-flex;align-items:center;gap:9px;background:transparent;color:#fff;font-weight:700;font-size:15px;padding:17px 34px;border-radius:4px;text-decoration:none;border:1.5px solid rgba(255,255,255,.55);}}
-.marq{{background:{accent};overflow:hidden;padding:13px 0;}}
-.marq-track{{display:flex;gap:56px;width:max-content;animation:slide 26s linear infinite;}}
-.marq span{{font-family:'Anton';font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#fff;white-space:nowrap;}}
-@keyframes slide{{to{{transform:translateX(-50%);}}}}
-.main{{background:#f4f1ec;}}
-.services{{max-width:1020px;margin:0 auto;padding:84px 5% 70px;}}
-.eyebrow{{color:{accent};font-size:11px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;margin-bottom:12px;}}
-.services h2{{font-family:'Anton';text-transform:uppercase;font-weight:400;font-size:clamp(1.9rem,4vw,2.8rem);color:#181818;margin-bottom:36px;}}
-.svc{{display:flex;align-items:center;gap:22px;padding:22px 6px;border-top:1.5px solid #d9d3c9;transition:.25s;}}
-.svc:last-of-type{{border-bottom:1.5px solid #d9d3c9;}}
-.svc:hover{{padding-left:16px;background:#fff;}}
-.svc-num{{font-family:'Anton';font-size:14px;color:{accent};letter-spacing:.08em;}}
-.svc-name{{font-weight:800;font-size:clamp(1.05rem,2.4vw,1.45rem);color:#181818;flex:1;}}
-.svc-ico{{font-size:26px;}}
-.band{{max-width:1020px;margin:0 auto;padding:0 5% 84px;display:grid;grid-template-columns:1.2fr .8fr;gap:48px;}}
-@media(max-width:760px){{.band{{grid-template-columns:1fr;}}}}
-.band h3{{font-family:'Anton';text-transform:uppercase;font-weight:400;font-size:1.7rem;color:#181818;margin-bottom:14px;}}
-.band p{{color:#55504a;line-height:1.75;font-weight:500;margin-bottom:22px;}}
-.trust{{display:flex;flex-direction:column;gap:12px;}}
-.trust div{{display:flex;align-items:center;gap:12px;font-weight:700;font-size:14.5px;color:#181818;}}
-.trust b{{width:26px;height:26px;background:{accent};color:#fff;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}}
-.info{{display:flex;flex-direction:column;gap:10px;}}
-.info-card{{background:#fff;border:1.5px solid #d9d3c9;padding:18px 22px;}}
-.info-label{{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#a39b8d;margin-bottom:5px;}}
-.info-val{{font-weight:800;font-size:15px;color:#181818;}}
-.info-val a{{color:{accent};text-decoration:none;}}
-.cta{{background:#181818;text-align:center;padding:90px 5%;}}
-.cta .eyebrow{{margin-bottom:16px;}}
-.cta h2{{font-family:'Anton';text-transform:uppercase;font-weight:400;font-size:clamp(2.2rem,6vw,4rem);color:#fff;line-height:1;margin-bottom:14px;}}
-.cta h2 span{{color:{accent};}}
-.cta p{{color:rgba(255,255,255,.6);font-weight:500;margin-bottom:34px;}}
-.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#181818;padding:11px 16px;display:flex;gap:10px;z-index:200;}}
-.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:800;font-size:14px;padding:13px;border-radius:4px;text-decoration:none;}}
-.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#2c2c2c;color:#fff;font-weight:700;font-size:13.5px;padding:13px;border-radius:4px;text-decoration:none;}}
-@media(max-width:640px){{nav{{top:34px;}} .nav-phone span{{display:none;}}}}
+body{{font-family:'Open Sans',sans-serif;color:#333;background:#fff;min-height:100vh;padding-bottom:70px;}}
+h1,h2,h3{{font-family:'Roboto Slab',serif;}}
+.preview-bar{{background:#222;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:600;}}
+.preview-bar a{{color:{accent};text-decoration:none;margin-left:6px;font-weight:700;}}
+.topbar{{background:#f4f4f4;border-bottom:1px solid #e2e2e2;font-size:12.5px;color:#555;}}
+.topbar-inner{{max-width:1140px;margin:0 auto;padding:8px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}}
+.topbar b{{color:#222;}}
+nav{{background:#fff;border-bottom:1px solid #e7e7e7;position:sticky;top:0;z-index:100;}}
+.nav-inner{{max-width:1140px;margin:0 auto;padding:0 20px;height:72px;display:flex;align-items:center;justify-content:space-between;}}
+.nav-brand{{display:flex;align-items:center;gap:11px;}}
+.nav-name{{font-family:'Roboto Slab',serif;font-weight:700;font-size:19px;color:#222;}}
+.nav-links{{display:flex;align-items:center;gap:26px;}}
+.nav-links a{{font-size:14px;font-weight:600;color:#444;text-decoration:none;}}
+.nav-links a:hover{{color:{accent};}}
+.nav-call{{background:{accent};color:#fff !important;font-weight:700;font-size:14px;padding:11px 22px;border-radius:4px;}}
+.hero{{position:relative;min-height:520px;display:flex;align-items:center;}}
+.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
+.hero-overlay{{position:absolute;inset:0;background:rgba(20,24,31,.66);}}
+.hero-inner{{position:relative;z-index:2;max-width:1140px;margin:0 auto;padding:80px 20px;width:100%;}}
+.hero-sub{{color:{accent};font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px;}}
+.hero h1{{color:#fff;font-size:clamp(2rem,4.6vw,3.2rem);font-weight:700;line-height:1.15;max-width:640px;margin-bottom:16px;}}
+.hero p{{color:rgba(255,255,255,.88);font-size:1.05rem;line-height:1.7;max-width:560px;margin-bottom:28px;}}
+.btn{{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;padding:14px 30px;border-radius:4px;text-decoration:none;}}
+.btn-accent{{background:{accent};color:#fff;}}
+.btn-white{{background:#fff;color:#222;}}
+.feature-strip{{max-width:1140px;margin:-46px auto 0;padding:0 20px;position:relative;z-index:5;display:grid;grid-template-columns:repeat(3,1fr);gap:0;box-shadow:0 10px 34px rgba(0,0,0,.12);}}
+@media(max-width:760px){{.feature-strip{{grid-template-columns:1fr;}}}}
+.feature{{background:#fff;padding:26px 28px;border-right:1px solid #eee;display:flex;gap:14px;align-items:flex-start;}}
+.feature:last-child{{border-right:none;}}
+.feature-ico{{width:42px;height:42px;background:{accent}1c;color:{accent};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;font-weight:700;}}
+.feature h3{{font-size:15.5px;color:#222;margin-bottom:3px;}}
+.feature p{{font-size:13px;color:#777;line-height:1.5;}}
+.section{{max-width:1140px;margin:0 auto;padding:80px 20px;}}
+.section-head{{text-align:center;max-width:620px;margin:0 auto 44px;}}
+.section-head .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}}
+.section-head h2{{font-size:clamp(1.6rem,3.4vw,2.3rem);color:#222;margin-bottom:10px;}}
+.section-head p{{color:#777;font-size:15px;line-height:1.7;}}
+.svc-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;}}
+.svc-card{{background:#fff;border:1px solid #e7e7e7;border-top:3px solid {accent};padding:30px 26px;}}
+.svc-icon{{font-size:30px;margin-bottom:14px;}}
+.svc-card h3{{font-size:17px;color:#222;margin-bottom:8px;}}
+.svc-card p{{font-size:13.5px;color:#777;line-height:1.65;}}
+.why{{background:#f7f7f7;}}
+.why-inner{{max-width:1140px;margin:0 auto;padding:80px 20px;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;}}
+@media(max-width:820px){{.why-inner{{grid-template-columns:1fr;}}}}
+.why-photo img{{width:100%;border-radius:6px;display:block;aspect-ratio:4/3;object-fit:cover;}}
+.why-text .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}}
+.why-text h2{{font-size:clamp(1.5rem,3vw,2.1rem);color:#222;margin-bottom:14px;}}
+.why-text>p{{color:#666;line-height:1.75;margin-bottom:22px;}}
+.why-text ul{{list-style:none;display:flex;flex-direction:column;gap:11px;}}
+.why-text li{{display:flex;gap:11px;align-items:center;font-size:14.5px;font-weight:600;color:#333;}}
+.why-text li span{{width:24px;height:24px;background:{accent};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}}
+.cta{{background:{accent};}}
+.cta-inner{{max-width:1140px;margin:0 auto;padding:60px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:22px;}}
+.cta h2{{color:#fff;font-size:clamp(1.4rem,3vw,2rem);}}
+.cta p{{color:rgba(255,255,255,.85);font-size:14.5px;margin-top:6px;}}
+.contact{{max-width:1140px;margin:0 auto;padding:80px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;}}
+.contact-card{{border:1px solid #e7e7e7;padding:28px;text-align:center;}}
+.contact-card .ico{{font-size:26px;margin-bottom:10px;}}
+.contact-card h3{{font-size:15px;color:#222;margin-bottom:6px;}}
+.contact-card p{{font-size:14px;color:#666;line-height:1.6;}}
+.contact-card a{{color:{accent};font-weight:700;text-decoration:none;}}
+.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e2e2;box-shadow:0 -4px 18px rgba(0,0,0,.08);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
+.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:4px;text-decoration:none;}}
+.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#222;color:#fff;font-weight:700;font-size:13.5px;padding:13px;border-radius:4px;text-decoration:none;}}
+@media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}} .topbar-inner{{justify-content:center;}}}}
 </style></head><body>
 <div class="preview-bar">This is a FREE preview website built for {name}.<a href="sms:{phone}">Text us to claim it</a></div>
-<nav>
+<div class="topbar"><div class="topbar-inner">
+  <span><b>Hours:</b> Mon&ndash;Sat 8am&ndash;6pm</span>
+  <span><b>Serving:</b> {city if city else 'the local area'} &amp; surrounding</span>
+  <span><b>Call:</b> <a href="tel:{phone}" style="color:{accent};font-weight:700;text-decoration:none;">{phone}</a></span>
+</div></div>
+<nav><div class="nav-inner">
   <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
-  <a href="tel:{phone}" class="nav-phone">{phone_svg}<span>{phone}</span></a>
-</nav>
+  <div class="nav-links">
+    <a href="#services">Services</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+    <a href="tel:{phone}" class="nav-call">{phone}</a>
+  </div>
+</div></nav>
 <section class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-shade"></div>
+  <div class="hero-bg"></div><div class="hero-overlay"></div>
   <div class="hero-inner">
-    <div class="hero-kicker">{cat_label} &middot; {city if city else 'Your Area'}</div>
-    <h1>{headline_hl}</h1>
+    <div class="hero-sub">{cat_label} &bull; {city if city else 'Your Area'}</div>
+    <h1>{headline}</h1>
     <p>{sub}</p>
-    <div class="hero-btns">
-      <a href="tel:{phone}" class="btn-a">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn-b">{sms_svg}Send a Text</a>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
+      <a href="sms:{phone}" class="btn btn-white">{sms_svg}Request a Quote</a>
     </div>
   </div>
 </section>
-<div class="marq"><div class="marq-track">{marq_items}{marq_items}</div></div>
-<div class="main">
-  <section class="services" id="services">
-    <div class="eyebrow">What we do</div>
-    <h2>Our Services</h2>
-    {svc_rows_bold}
-  </section>
-  <section class="band" id="about">
-    <div>
-      <h3>About {name}</h3>
-      <p>Locally owned and operated, {name} proudly serves {city if city else 'our community'} with professional {cat_label.lower()} work. We treat every customer like a neighbor, because to us, you are one.</p>
-      <div class="trust">{''.join(f'<div><b>&#10003;</b>{t}</div>' for t in trust)}</div>
-    </div>
-    <div class="info" id="contact">
-      <div class="info-card"><div class="info-label">Phone</div><div class="info-val"><a href="tel:{phone}">{phone}</a></div></div>
-      {f'<div class="info-card"><div class="info-label">Address</div><div class="info-val">{address}</div></div>' if address else ''}
-      <div class="info-card"><div class="info-label">Hours</div><div class="info-val">Mon&ndash;Sat 8am&ndash;6pm</div></div>
-      <div class="info-card"><div class="info-label">Service Area</div><div class="info-val">{city if city else 'Local Area'} &amp; Surrounding</div></div>
-    </div>
-  </section>
+<div class="feature-strip">
+  <div class="feature"><div class="feature-ico">&#10003;</div><div><h3>{trust[0]}</h3><p>We stand behind every job we complete.</p></div></div>
+  <div class="feature"><div class="feature-ico">&#9733;</div><div><h3>{trust[1] if len(trust) > 1 else 'Quality Work'}</h3><p>Trusted by homeowners and businesses alike.</p></div></div>
+  <div class="feature"><div class="feature-ico">&#9742;</div><div><h3>Fast Response</h3><p>Call or text and we will get right back to you.</p></div></div>
 </div>
-<section class="cta">
-  <div class="eyebrow">Ready when you are</div>
-  <h2>Call <span>{phone}</span></h2>
-  <p>Fast response. Fair pricing. Local team.</p>
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-    <a href="tel:{phone}" class="btn-a">{phone_svg}Call Now</a>
-    <a href="sms:{phone}" class="btn-b">{sms_svg}Text Us</a>
+<section class="section" id="services">
+  <div class="section-head">
+    <div class="kicker">Our Services</div>
+    <h2>What We Can Do for You</h2>
+    <p>Full-service {cat_label.lower()} for {city if city else 'the local area'} and surrounding communities.</p>
   </div>
+  <div class="svc-grid">{svc_cards_classic}</div>
+</section>
+<section class="why" id="about">
+  <div class="why-inner">
+    <div class="why-photo"><img src="{photo_url}" alt="{name}"></div>
+    <div class="why-text">
+      <div class="kicker">Why Choose Us</div>
+      <h2>A Local {cat_label} You Can Count On</h2>
+      <p>{name} is locally owned and operated right here in {city if city else 'your area'}. We believe in honest work, clear pricing, and treating every customer like a neighbor.</p>
+      <ul>{trust_checks}</ul>
+    </div>
+  </div>
+</section>
+<section class="cta">
+  <div class="cta-inner">
+    <div><h2>Ready to get started?</h2><p>Call today for a free, no-obligation estimate.</p></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="tel:{phone}" class="btn btn-white">{phone_svg}Call {phone}</a>
+      <a href="sms:{phone}" class="btn" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.55);">{sms_svg}Text Us</a>
+    </div>
+  </div>
+</section>
+<section class="contact" id="contact">
+  <div class="contact-card"><div class="ico">&#9742;</div><h3>Phone</h3><p><a href="tel:{phone}">{phone}</a></p></div>
+  {f'<div class="contact-card"><div class="ico">&#128205;</div><h3>Address</h3><p>{address}</p></div>' if address else ''}
+  <div class="contact-card"><div class="ico">&#128336;</div><h3>Hours</h3><p>Mon&ndash;Sat 8am&ndash;6pm<br>Sunday by appointment</p></div>
+  <div class="contact-card"><div class="ico">&#127968;</div><h3>Service Area</h3><p>{city if city else 'Local Area'} &amp; surrounding communities</p></div>
 </section>
 {footer_html}
 <div class="sticky-bar">
@@ -649,114 +675,137 @@ nav{{position:absolute;top:38px;left:0;right:0;z-index:50;display:flex;align-ite
 </div>
 </body></html>"""
 
-    # ── Template 1: "Dark Luxe" — Fraunces serif, warm black, framed photo ────
+    # ── Template 1: Classic corporate — split hero, bordered cards, 3 steps ───
     elif template == 1:
         return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{name} | {cat_label} in {city or 'Your Area'}</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box;}}
 html{{scroll-behavior:smooth;}}
-body{{font-family:'Manrope',sans-serif;background:#12100d;color:#ece7df;min-height:100vh;padding-bottom:74px;}}
-.serif{{font-family:'Fraunces',serif;}}
-.preview-bar{{background:{accent};color:#fff;text-align:center;padding:9px 20px;font-size:12px;font-weight:700;}}
-.preview-bar a{{color:#fff;text-decoration:underline;margin-left:8px;font-weight:800;}}
-nav{{display:flex;align-items:center;justify-content:space-between;padding:20px 5%;border-bottom:1px solid rgba(236,231,223,.1);position:sticky;top:0;background:rgba(18,16,13,.92);backdrop-filter:blur(10px);z-index:100;}}
+body{{font-family:'Open Sans',sans-serif;color:#3a3f47;background:#fff;min-height:100vh;padding-bottom:70px;}}
+h1,h2,h3{{font-family:'Poppins',sans-serif;color:#1d2129;}}
+.preview-bar{{background:#1d2129;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:600;}}
+.preview-bar a{{color:{accent};text-decoration:none;margin-left:6px;font-weight:700;}}
+.topbar{{background:{accent};color:#fff;font-size:12.5px;}}
+.topbar-inner{{max-width:1140px;margin:0 auto;padding:7px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}}
+.topbar a{{color:#fff;font-weight:700;text-decoration:none;}}
+nav{{background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.07);position:sticky;top:0;z-index:100;}}
+.nav-inner{{max-width:1140px;margin:0 auto;padding:0 20px;height:74px;display:flex;align-items:center;justify-content:space-between;}}
 .nav-brand{{display:flex;align-items:center;gap:11px;}}
-.nav-name{{font-family:'Fraunces',serif;font-size:19px;font-weight:500;color:#ece7df;}}
-.nav-phone{{display:inline-flex;align-items:center;gap:7px;border:1px solid {accent};color:{accent};font-weight:700;font-size:13px;padding:10px 20px;border-radius:100px;text-decoration:none;transition:.3s;}}
-.nav-phone:hover{{background:{accent};color:#fff;}}
-.hero{{max-width:1100px;margin:0 auto;padding:76px 5% 84px;display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center;}}
-@media(max-width:820px){{.hero{{grid-template-columns:1fr;padding-top:52px;gap:44px;}}}}
-.hero-kicker{{display:flex;align-items:center;gap:12px;color:{accent};font-size:11px;font-weight:800;letter-spacing:.26em;text-transform:uppercase;margin-bottom:24px;}}
-.hero-kicker::before{{content:'';width:36px;height:1px;background:{accent};}}
-.hero h1{{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(2.5rem,5.4vw,4rem);line-height:1.07;letter-spacing:-.01em;color:#fff;margin-bottom:20px;}}
-.hero h1 .hl{{font-style:italic;color:{accent};}}
-.hero p{{color:rgba(236,231,223,.62);font-size:1.06rem;line-height:1.75;margin-bottom:32px;max-width:480px;}}
-.hero-btns{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:36px;}}
-.btn-a{{display:inline-flex;align-items:center;gap:9px;background:{accent};color:#fff;font-weight:800;font-size:15px;padding:16px 32px;border-radius:100px;text-decoration:none;box-shadow:0 8px 30px {accent}44;}}
-.btn-b{{display:inline-flex;align-items:center;gap:9px;color:#ece7df;font-weight:700;font-size:15px;padding:16px 32px;border-radius:100px;text-decoration:none;border:1px solid rgba(236,231,223,.3);}}
-.hero-trust{{display:flex;flex-wrap:wrap;gap:10px;}}
-.hero-trust span{{font-size:12.5px;font-weight:600;color:rgba(236,231,223,.7);border:1px solid rgba(236,231,223,.16);border-radius:100px;padding:8px 16px;}}
-.photo-wrap{{position:relative;}}
-.photo-wrap::after{{content:'';position:absolute;inset:18px -18px -18px 18px;border:1px solid {accent}66;border-radius:22px;z-index:0;}}
-.photo-wrap img{{position:relative;z-index:1;width:100%;aspect-ratio:4/4.6;object-fit:cover;border-radius:22px;display:block;filter:saturate(.92);}}
-.photo-badge{{position:absolute;z-index:2;bottom:22px;left:22px;background:rgba(18,16,13,.82);backdrop-filter:blur(8px);border:1px solid rgba(236,231,223,.15);border-radius:14px;padding:13px 18px;font-size:13px;font-weight:700;color:#ece7df;}}
-.photo-badge em{{display:block;font-style:normal;color:{accent};font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin-bottom:3px;}}
-.divider{{max-width:1100px;margin:0 auto;padding:0 5%;}}
-.divider hr{{border:none;border-top:1px solid rgba(236,231,223,.1);}}
-.services{{max-width:1100px;margin:0 auto;padding:76px 5%;}}
-.eyebrow{{color:{accent};font-size:11px;font-weight:800;letter-spacing:.26em;text-transform:uppercase;margin-bottom:14px;}}
-.services h2{{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(1.9rem,4vw,2.7rem);color:#fff;margin-bottom:38px;}}
-.row{{display:flex;align-items:center;gap:24px;padding:21px 4px;border-top:1px solid rgba(236,231,223,.12);transition:.25s;}}
-.row:last-of-type{{border-bottom:1px solid rgba(236,231,223,.12);}}
-.row:hover{{padding-left:14px;}}
-.row-num{{font-family:'Fraunces',serif;font-style:italic;color:{accent};font-size:15px;}}
-.row-name{{flex:1;font-weight:700;font-size:clamp(1rem,2.2vw,1.3rem);color:#ece7df;}}
-.row-ico{{font-size:24px;opacity:.9;}}
-.quote{{text-align:center;max-width:760px;margin:0 auto;padding:24px 5% 80px;}}
-.quote p{{font-family:'Fraunces',serif;font-style:italic;font-weight:300;font-size:clamp(1.4rem,3.2vw,2rem);line-height:1.4;color:rgba(236,231,223,.85);}}
-.quote p b{{color:{accent};font-weight:400;}}
-.contact{{max-width:1100px;margin:0 auto;padding:0 5% 80px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}}
-.c-card{{background:rgba(236,231,223,.04);border:1px solid rgba(236,231,223,.12);border-radius:18px;padding:24px;}}
-.c-label{{font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:rgba(236,231,223,.45);margin-bottom:8px;}}
-.c-val{{font-weight:700;font-size:15.5px;color:#ece7df;line-height:1.5;}}
-.c-val a{{color:{accent};text-decoration:none;}}
-.cta{{background:{accent};text-align:center;padding:84px 5%;}}
-.cta h2{{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(2rem,5vw,3.2rem);color:#fff;margin-bottom:12px;}}
-.cta h2 em{{font-style:italic;}}
-.cta p{{color:rgba(255,255,255,.85);margin-bottom:32px;font-weight:600;}}
-.btn-w{{display:inline-flex;align-items:center;gap:9px;background:#12100d;color:#fff;font-weight:800;font-size:15px;padding:16px 34px;border-radius:100px;text-decoration:none;}}
-.btn-w2{{display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.16);color:#fff;font-weight:700;font-size:15px;padding:16px 34px;border-radius:100px;text-decoration:none;border:1px solid rgba(255,255,255,.45);}}
-.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:rgba(18,16,13,.96);backdrop-filter:blur(10px);border-top:1px solid rgba(236,231,223,.12);padding:11px 16px;display:flex;gap:10px;z-index:200;}}
-.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:800;font-size:14px;padding:13px;border-radius:100px;text-decoration:none;}}
-.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid rgba(236,231,223,.3);color:#ece7df;font-weight:700;font-size:13.5px;padding:13px;border-radius:100px;text-decoration:none;}}
+.nav-name{{font-family:'Poppins',sans-serif;font-weight:700;font-size:18px;color:#1d2129;}}
+.nav-links{{display:flex;align-items:center;gap:26px;}}
+.nav-links a{{font-size:14px;font-weight:600;color:#3a3f47;text-decoration:none;}}
+.nav-call{{background:{accent};color:#fff !important;font-weight:700;font-size:14px;padding:11px 24px;border-radius:30px;}}
+.hero{{background:#f6f8fa;}}
+.hero-inner{{max-width:1140px;margin:0 auto;padding:72px 20px;display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center;}}
+@media(max-width:820px){{.hero-inner{{grid-template-columns:1fr;padding-top:52px;}}}}
+.hero-badge{{display:inline-block;background:#fff;border:1px solid #e1e6eb;color:{accent};font-size:12.5px;font-weight:700;padding:7px 16px;border-radius:30px;margin-bottom:18px;}}
+.hero h1{{font-size:clamp(2rem,4.4vw,3rem);font-weight:700;line-height:1.18;margin-bottom:16px;}}
+.hero p{{color:#5b626c;font-size:1.03rem;line-height:1.75;margin-bottom:26px;max-width:500px;}}
+.hero ul{{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:28px;}}
+.hero li{{display:flex;gap:10px;align-items:center;font-size:14.5px;font-weight:600;color:#3a3f47;}}
+.hero li span{{color:{accent};font-weight:700;}}
+.btn{{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;padding:14px 30px;border-radius:30px;text-decoration:none;}}
+.btn-accent{{background:{accent};color:#fff;box-shadow:0 6px 18px {accent}40;}}
+.btn-line{{background:#fff;color:#1d2129;border:1.5px solid #d4dae0;}}
+.hero-photo img{{width:100%;border-radius:10px;display:block;aspect-ratio:4/3.4;object-fit:cover;box-shadow:0 18px 44px rgba(29,33,41,.16);}}
+.section{{max-width:1140px;margin:0 auto;padding:80px 20px;}}
+.section-head{{max-width:620px;margin-bottom:42px;}}
+.section-head .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}}
+.section-head h2{{font-size:clamp(1.6rem,3.2vw,2.2rem);margin-bottom:10px;}}
+.section-head p{{color:#5b626c;font-size:15px;line-height:1.7;}}
+.svc-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px;}}
+.svc-card{{display:flex;gap:16px;align-items:flex-start;border:1px solid #e1e6eb;border-radius:10px;padding:24px;transition:.2s;}}
+.svc-card:hover{{border-color:{accent};box-shadow:0 8px 24px rgba(29,33,41,.08);}}
+.svc-icon{{width:48px;height:48px;background:{accent}14;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0;}}
+.svc-card h3{{font-size:16px;margin-bottom:5px;}}
+.svc-card p{{font-size:13.5px;color:#5b626c;line-height:1.6;}}
+.steps{{background:#1d2129;}}
+.steps-inner{{max-width:1140px;margin:0 auto;padding:76px 20px;}}
+.steps-inner .kicker{{color:{accent};font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}}
+.steps-inner h2{{color:#fff;font-size:clamp(1.5rem,3vw,2.1rem);margin-bottom:38px;}}
+.steps-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:22px;}}
+.step{{background:#262b34;border-radius:10px;padding:28px;}}
+.step-num{{font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:{accent};margin-bottom:12px;}}
+.step h3{{color:#fff;font-size:16.5px;margin-bottom:7px;}}
+.step p{{color:#9aa3ad;font-size:13.5px;line-height:1.65;}}
+.contact-band{{background:#f6f8fa;}}
+.contact-inner{{max-width:1140px;margin:0 auto;padding:76px 20px;display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;}}
+@media(max-width:820px){{.contact-inner{{grid-template-columns:1fr;}}}}
+.contact-left h2{{font-size:clamp(1.5rem,3vw,2.1rem);margin-bottom:12px;}}
+.contact-left p{{color:#5b626c;line-height:1.75;margin-bottom:24px;}}
+.contact-rows{{display:flex;flex-direction:column;gap:12px;}}
+.c-row{{background:#fff;border:1px solid #e1e6eb;border-radius:10px;padding:17px 22px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;}}
+.c-row b{{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#9aa3ad;}}
+.c-row span{{font-weight:700;color:#1d2129;font-size:14.5px;}}
+.c-row a{{color:{accent};font-weight:700;text-decoration:none;}}
+.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e1e6eb;box-shadow:0 -4px 18px rgba(0,0,0,.08);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
+.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:30px;text-decoration:none;}}
+.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#1d2129;color:#fff;font-weight:700;font-size:13.5px;padding:13px;border-radius:30px;text-decoration:none;}}
+@media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}} .topbar-inner{{justify-content:center;}}}}
 </style></head><body>
 <div class="preview-bar">Free website preview for {name}.<a href="sms:{phone}">Text to claim it</a></div>
-<nav>
+<div class="topbar"><div class="topbar-inner">
+  <span>Serving {city if city else 'the local area'} &amp; surrounding communities</span>
+  <span>Mon&ndash;Sat 8am&ndash;6pm &nbsp;&bull;&nbsp; <a href="tel:{phone}">{phone}</a></span>
+</div></div>
+<nav><div class="nav-inner">
   <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
-  <a href="tel:{phone}" class="nav-phone">{phone_svg}{phone}</a>
-</nav>
-<section class="hero">
+  <div class="nav-links">
+    <a href="#services">Services</a>
+    <a href="#how">How It Works</a>
+    <a href="#contact">Contact</a>
+    <a href="tel:{phone}" class="nav-call">Call Now</a>
+  </div>
+</div></nav>
+<section class="hero"><div class="hero-inner">
   <div>
-    <div class="hero-kicker">{cat_label} &middot; {city if city else 'Your Area'}</div>
-    <h1>{headline_hl}</h1>
+    <div class="hero-badge">{cat_label} in {city if city else 'Your Area'}</div>
+    <h1>{headline}</h1>
     <p>{sub}</p>
-    <div class="hero-btns">
-      <a href="tel:{phone}" class="btn-a">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn-b">{sms_svg}Text Us</a>
+    <ul>{''.join(f'<li><span>&#10003;</span>{t}</li>' for t in trust)}</ul>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
+      <a href="sms:{phone}" class="btn btn-line">{sms_svg}Text Us</a>
     </div>
-    <div class="hero-trust">{''.join(f'<span>&#10003;&nbsp; {t}</span>' for t in trust)}</div>
   </div>
-  <div class="photo-wrap">
-    <img src="{photo_url}" alt="{name} {cat_label}">
-    <div class="photo-badge"><em>Locally owned</em>Serving {city if city else 'the local area'} &amp; surrounding</div>
+  <div class="hero-photo"><img src="{photo_url}" alt="{name}"></div>
+</div></section>
+<section class="section" id="services">
+  <div class="section-head">
+    <div class="kicker">What We Offer</div>
+    <h2>Our Services</h2>
+    <p>Complete {cat_label.lower()} services for homes and businesses in {city if city else 'the local area'}.</p>
   </div>
+  <div class="svc-grid">{svc_cards_corp}</div>
 </section>
-<div class="divider"><hr></div>
-<section class="services" id="services">
-  <div class="eyebrow">What we offer</div>
-  <h2>Our Services</h2>
-  {svc_rows_dark}
-</section>
-<section class="quote">
-  <p>&ldquo;Every job, big or small, gets our full attention. That&rsquo;s the <b>{name}</b> promise.&rdquo;</p>
-</section>
-<section class="contact" id="contact">
-  <div class="c-card"><div class="c-label">Phone</div><div class="c-val"><a href="tel:{phone}">{phone}</a></div></div>
-  {f'<div class="c-card"><div class="c-label">Address</div><div class="c-val">{address}</div></div>' if address else ''}
-  <div class="c-card"><div class="c-label">Hours</div><div class="c-val">Mon&ndash;Sat 8am&ndash;6pm</div></div>
-  <div class="c-card"><div class="c-label">Service Area</div><div class="c-val">{city if city else 'Local Area'} &amp; Surrounding</div></div>
-</section>
-<section class="cta">
-  <h2>Ready to <em>get started?</em></h2>
-  <p>Call or text us today. We respond fast.</p>
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-    <a href="tel:{phone}" class="btn-w">{phone_svg}Call {phone}</a>
-    <a href="sms:{phone}" class="btn-w2">{sms_svg}Send a Text</a>
+<section class="steps" id="how"><div class="steps-inner">
+  <div class="kicker">How It Works</div>
+  <h2>Getting Started Is Easy</h2>
+  <div class="steps-grid">
+    <div class="step"><div class="step-num">STEP 1</div><h3>Call or Text Us</h3><p>Reach us at {phone}. Tell us what you need and we will answer any questions.</p></div>
+    <div class="step"><div class="step-num">STEP 2</div><h3>Get Your Free Quote</h3><p>We give you clear, upfront pricing before any work begins. No surprises.</p></div>
+    <div class="step"><div class="step-num">STEP 3</div><h3>Job Done Right</h3><p>Our team shows up on time and gets it done right the first time. Guaranteed.</p></div>
   </div>
-</section>
+</div></section>
+<section class="contact-band" id="contact"><div class="contact-inner">
+  <div class="contact-left">
+    <h2>Get in Touch Today</h2>
+    <p>{name} is ready to help. Call or text for a fast response and a free, no-obligation quote.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
+      <a href="sms:{phone}" class="btn btn-line">{sms_svg}Send a Text</a>
+    </div>
+  </div>
+  <div class="contact-rows">
+    <div class="c-row"><b>Phone</b><span><a href="tel:{phone}">{phone}</a></span></div>
+    {f'<div class="c-row"><b>Address</b><span>{address}</span></div>' if address else ''}
+    <div class="c-row"><b>Hours</b><span>Mon&ndash;Sat 8am&ndash;6pm</span></div>
+    <div class="c-row"><b>Service Area</b><span>{city if city else 'Local Area'} &amp; Surrounding</span></div>
+  </div>
+</div></section>
 {footer_html}
 <div class="sticky-bar">
   <a href="tel:{phone}" class="sticky-call">{phone_svg}Call Now</a>
@@ -764,124 +813,134 @@ nav{{display:flex;align-items:center;justify-content:space-between;padding:20px 
 </div>
 </body></html>"""
 
-    # ── Template 2: "Warm Editorial" — DM Serif arch photo, cream palette ─────
+    # ── Template 2: Friendly local — centered hero, soft cards, about right ───
     else:
         return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{name} | {cat_label} in {city or 'Your Area'}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Karla:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box;}}
 html{{scroll-behavior:smooth;}}
-body{{font-family:'Karla',sans-serif;background:#faf6ef;color:#241d14;min-height:100vh;padding-bottom:74px;}}
-.preview-bar{{background:#241d14;color:#faf6ef;text-align:center;padding:9px 20px;font-size:12px;font-weight:700;}}
-.preview-bar a{{color:{accent};text-decoration:none;margin-left:8px;font-weight:800;}}
-nav{{display:flex;align-items:center;justify-content:space-between;padding:18px 5%;position:sticky;top:0;background:rgba(250,246,239,.94);backdrop-filter:blur(10px);z-index:100;border-bottom:1px solid rgba(36,29,20,.1);}}
+body{{font-family:'Lato',sans-serif;color:#42413d;background:#fff;min-height:100vh;padding-bottom:70px;}}
+h1,h2,h3{{font-family:'Nunito',sans-serif;color:#26251f;}}
+.preview-bar{{background:#26251f;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:700;}}
+.preview-bar a{{color:{accent};text-decoration:none;margin-left:6px;font-weight:800;}}
+nav{{background:#fff;border-bottom:1px solid #ecebe7;position:sticky;top:0;z-index:100;}}
+.nav-inner{{max-width:1100px;margin:0 auto;padding:0 20px;height:74px;display:flex;align-items:center;justify-content:space-between;}}
 .nav-brand{{display:flex;align-items:center;gap:11px;}}
-.nav-name{{font-family:'DM Serif Display',serif;font-size:20px;color:#241d14;}}
-.nav-phone{{display:inline-flex;align-items:center;gap:7px;background:#241d14;color:#faf6ef;font-weight:800;font-size:13px;padding:10px 22px;border-radius:100px;text-decoration:none;}}
-.hero{{max-width:1080px;margin:0 auto;padding:64px 5% 80px;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;}}
-@media(max-width:820px){{.hero{{grid-template-columns:1fr;padding-top:46px;gap:42px;}}}}
-.hero-kicker{{display:inline-block;background:{accent}1a;color:{accent};font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;padding:8px 18px;border-radius:100px;margin-bottom:22px;}}
-.hero h1{{font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(2.6rem,5.6vw,4.1rem);line-height:1.05;letter-spacing:-.01em;color:#241d14;margin-bottom:18px;}}
-.hero h1 .hl{{font-style:italic;color:{accent};}}
-.hero p{{color:#6d6354;font-size:1.06rem;line-height:1.75;margin-bottom:30px;max-width:470px;}}
-.hero-btns{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:30px;}}
-.btn-a{{display:inline-flex;align-items:center;gap:9px;background:{accent};color:#fff;font-weight:800;font-size:15px;padding:16px 32px;border-radius:100px;text-decoration:none;box-shadow:0 10px 26px {accent}3d;}}
-.btn-b{{display:inline-flex;align-items:center;gap:9px;background:transparent;color:#241d14;font-weight:700;font-size:15px;padding:16px 32px;border-radius:100px;text-decoration:none;border:1.5px solid #241d14;}}
-.hero-meta{{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;font-weight:600;color:#8a7e6c;}}
-.hero-meta b{{color:#241d14;}}
-.arch{{position:relative;}}
-.arch img{{width:100%;aspect-ratio:4/4.8;object-fit:cover;border-radius:300px 300px 20px 20px;display:block;border:1.5px solid rgba(36,29,20,.18);}}
-.arch-badge{{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);background:#fff;border:1.5px solid rgba(36,29,20,.12);border-radius:100px;padding:12px 26px;font-size:13px;font-weight:800;color:#241d14;white-space:nowrap;box-shadow:0 12px 30px rgba(36,29,20,.12);}}
-.arch-badge span{{color:{accent};}}
-.services{{background:#fff;padding:84px 5%;}}
-.services-inner{{max-width:1020px;margin:0 auto;}}
-.eyebrow{{color:{accent};font-size:11px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;margin-bottom:12px;text-align:center;}}
-.services h2{{font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(2rem,4.4vw,2.9rem);color:#241d14;margin-bottom:40px;text-align:center;}}
-.svc-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:16px;}}
-.card{{background:#faf6ef;border:1.5px solid rgba(36,29,20,.1);border-radius:20px;padding:26px 18px;text-align:center;transition:.25s;}}
-.card:hover{{transform:translateY(-4px);box-shadow:0 14px 30px rgba(36,29,20,.1);}}
-.card-ico{{width:52px;height:52px;border-radius:50%;background:{accent}1a;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 14px;}}
-.card-name{{font-weight:800;font-size:14.5px;color:#241d14;}}
-.about{{max-width:1020px;margin:0 auto;padding:84px 5%;display:grid;grid-template-columns:1.1fr .9fr;gap:52px;align-items:start;}}
-@media(max-width:760px){{.about{{grid-template-columns:1fr;}}}}
-.about h3{{font-family:'DM Serif Display',serif;font-weight:400;font-size:2rem;color:#241d14;margin-bottom:14px;}}
-.about h3 em{{color:{accent};}}
-.about p{{color:#6d6354;line-height:1.8;margin-bottom:24px;}}
-.trust{{display:flex;flex-direction:column;gap:12px;}}
-.trust div{{display:flex;align-items:center;gap:12px;font-weight:700;font-size:14.5px;color:#241d14;}}
-.trust b{{width:28px;height:28px;border-radius:50%;background:{accent};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}}
-.info{{display:flex;flex-direction:column;gap:12px;}}
-.info-card{{background:#fff;border:1.5px solid rgba(36,29,20,.1);border-radius:18px;padding:20px 24px;}}
-.info-label{{font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#a89c88;margin-bottom:5px;}}
-.info-val{{font-weight:800;font-size:15.5px;color:#241d14;}}
-.info-val a{{color:{accent};text-decoration:none;}}
-.cta-wrap{{padding:0 5% 90px;}}
-.cta{{max-width:1020px;margin:0 auto;background:{accent};border-radius:32px;text-align:center;padding:74px 8%;}}
-.cta h2{{font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(2rem,4.8vw,3rem);color:#fff;margin-bottom:12px;}}
-.cta h2 em{{font-style:italic;}}
-.cta p{{color:rgba(255,255,255,.88);font-weight:600;margin-bottom:32px;}}
-.btn-w{{display:inline-flex;align-items:center;gap:9px;background:#fff;color:{accent};font-weight:800;font-size:15px;padding:16px 32px;border-radius:100px;text-decoration:none;}}
-.btn-w2{{display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.16);color:#fff;font-weight:700;font-size:15px;padding:16px 32px;border-radius:100px;text-decoration:none;border:1.5px solid rgba(255,255,255,.5);}}
-.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:rgba(250,246,239,.97);backdrop-filter:blur(10px);border-top:1.5px solid rgba(36,29,20,.12);padding:11px 16px;display:flex;gap:10px;z-index:200;}}
-.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:800;font-size:14px;padding:13px;border-radius:100px;text-decoration:none;}}
-.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#241d14;color:#faf6ef;font-weight:700;font-size:13.5px;padding:13px;border-radius:100px;text-decoration:none;}}
+.nav-name{{font-family:'Nunito',sans-serif;font-weight:900;font-size:19px;color:#26251f;}}
+.nav-links{{display:flex;align-items:center;gap:24px;}}
+.nav-links a{{font-size:14.5px;font-weight:700;color:#56554f;text-decoration:none;}}
+.nav-call{{background:{accent};color:#fff !important;font-weight:800;font-size:14px;padding:11px 24px;border-radius:10px;}}
+.hero{{position:relative;text-align:center;padding:96px 20px 110px;overflow:hidden;}}
+.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
+.hero-overlay{{position:absolute;inset:0;background:rgba(24,23,19,.62);}}
+.hero-inner{{position:relative;z-index:2;max-width:760px;margin:0 auto;}}
+.hero-badge{{display:inline-block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:13px;font-weight:700;padding:8px 20px;border-radius:30px;margin-bottom:20px;}}
+.hero h1{{color:#fff;font-size:clamp(2.1rem,5vw,3.4rem);font-weight:900;line-height:1.12;margin-bottom:16px;}}
+.hero p{{color:rgba(255,255,255,.88);font-size:1.08rem;line-height:1.7;margin-bottom:30px;max-width:580px;margin-left:auto;margin-right:auto;}}
+.btn{{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:15px;padding:15px 32px;border-radius:10px;text-decoration:none;}}
+.btn-accent{{background:{accent};color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.25);}}
+.btn-white{{background:#fff;color:#26251f;}}
+.hero-stats{{position:relative;z-index:2;display:flex;justify-content:center;gap:36px;margin-top:42px;flex-wrap:wrap;}}
+.hstat{{color:#fff;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;}}
+.hstat span{{color:{accent};font-size:16px;}}
+.section{{max-width:1100px;margin:0 auto;padding:84px 20px;}}
+.section-head{{text-align:center;max-width:600px;margin:0 auto 44px;}}
+.section-head .kicker{{color:{accent};font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;}}
+.section-head h2{{font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:900;margin-bottom:10px;}}
+.section-head p{{color:#76746c;font-size:15px;line-height:1.7;}}
+.svc-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:18px;}}
+.svc-card{{background:#fff;border:1px solid #ecebe7;border-radius:16px;padding:30px 20px;text-align:center;box-shadow:0 3px 14px rgba(38,37,31,.05);transition:.2s;}}
+.svc-card:hover{{transform:translateY(-3px);box-shadow:0 12px 28px rgba(38,37,31,.1);}}
+.svc-icon{{width:58px;height:58px;border-radius:14px;background:{accent}16;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px;}}
+.svc-card h3{{font-size:15px;font-weight:800;}}
+.about{{background:#faf9f6;}}
+.about-inner{{max-width:1100px;margin:0 auto;padding:84px 20px;display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center;}}
+@media(max-width:820px){{.about-inner{{grid-template-columns:1fr;}}}}
+.about-text .kicker{{color:{accent};font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;}}
+.about-text h2{{font-size:clamp(1.6rem,3.2vw,2.2rem);font-weight:900;margin-bottom:14px;}}
+.about-text p{{color:#76746c;line-height:1.8;margin-bottom:22px;}}
+.about-text ul{{list-style:none;display:flex;flex-direction:column;gap:12px;}}
+.about-text li{{display:flex;gap:12px;align-items:center;font-size:15px;font-weight:700;color:#42413d;}}
+.about-text li span{{width:26px;height:26px;background:{accent};color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}}
+.about-photo img{{width:100%;border-radius:20px;display:block;aspect-ratio:4/3.2;object-fit:cover;box-shadow:0 16px 40px rgba(38,37,31,.14);}}
+.contact{{text-align:center;}}
+.contact-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:8px;}}
+.contact-card{{background:#fff;border:1px solid #ecebe7;border-radius:16px;padding:30px 22px;box-shadow:0 3px 14px rgba(38,37,31,.05);}}
+.contact-card .ico{{font-size:26px;margin-bottom:10px;}}
+.contact-card h3{{font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9b9890;margin-bottom:7px;}}
+.contact-card p{{font-size:15px;font-weight:700;color:#26251f;line-height:1.6;}}
+.contact-card a{{color:{accent};text-decoration:none;}}
+.cta{{background:{accent};text-align:center;padding:76px 20px;}}
+.cta h2{{color:#fff;font-size:clamp(1.7rem,3.6vw,2.5rem);font-weight:900;margin-bottom:10px;}}
+.cta p{{color:rgba(255,255,255,.88);font-size:15.5px;margin-bottom:30px;}}
+.sticky-bar{{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ecebe7;box-shadow:0 -4px 18px rgba(0,0,0,.08);padding:10px 16px;display:flex;gap:10px;z-index:200;}}
+.sticky-call{{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:{accent};color:#fff;font-weight:800;font-size:14px;padding:13px;border-radius:10px;text-decoration:none;}}
+.sticky-claim{{flex:1;display:flex;align-items:center;justify-content:center;background:#26251f;color:#fff;font-weight:700;font-size:13.5px;padding:13px;border-radius:10px;text-decoration:none;}}
+@media(max-width:700px){{.nav-links a:not(.nav-call){{display:none;}}}}
 </style></head><body>
 <div class="preview-bar">Free website preview for {name}.<a href="sms:{phone}">Text to claim it today</a></div>
-<nav>
+<nav><div class="nav-inner">
   <div class="nav-brand">{logo_nav}<span class="nav-name">{name}</span></div>
-  <a href="tel:{phone}" class="nav-phone">{phone_svg}{phone}</a>
-</nav>
+  <div class="nav-links">
+    <a href="#services">Services</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+    <a href="tel:{phone}" class="nav-call">{phone}</a>
+  </div>
+</div></nav>
 <section class="hero">
-  <div>
-    <div class="hero-kicker">{cat_label} in {city if city else 'Your Area'}</div>
-    <h1>{headline_hl}</h1>
+  <div class="hero-bg"></div><div class="hero-overlay"></div>
+  <div class="hero-inner">
+    <div class="hero-badge">{cat_label} in {city if city else 'Your Area'}</div>
+    <h1>{headline}</h1>
     <p>{sub}</p>
-    <div class="hero-btns">
-      <a href="tel:{phone}" class="btn-a">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn-b">{sms_svg}Text Us</a>
-    </div>
-    <div class="hero-meta">
-      <span><b>Hours:</b> Mon&ndash;Sat 8am&ndash;6pm</span>
-      {f'<span><b>Find us:</b> {address}</span>' if address else ''}
-    </div>
-  </div>
-  <div class="arch">
-    <img src="{photo_url}" alt="{name} {cat_label}">
-    <div class="arch-badge"><span>&#10003;</span> Locally Owned &amp; Operated</div>
-  </div>
-</section>
-<section class="services" id="services">
-  <div class="services-inner">
-    <div class="eyebrow">What we offer</div>
-    <h2>Our Services</h2>
-    <div class="svc-grid">{svc_cards_warm}</div>
-  </div>
-</section>
-<section class="about" id="about">
-  <div>
-    <h3>Why choose <em>{name}?</em></h3>
-    <p>We are a locally owned {cat_label.lower()} business dedicated to serving {city if city else 'our community'} with integrity. Every job, big or small, gets our full attention.</p>
-    <div class="trust">{''.join(f'<div><b>&#10003;</b>{t}</div>' for t in trust)}</div>
-  </div>
-  <div class="info" id="contact">
-    <div class="info-card"><div class="info-label">Phone</div><div class="info-val"><a href="tel:{phone}">{phone}</a></div></div>
-    {f'<div class="info-card"><div class="info-label">Address</div><div class="info-val">{address}</div></div>' if address else ''}
-    <div class="info-card"><div class="info-label">Hours</div><div class="info-val">Mon&ndash;Sat 8am&ndash;6pm</div></div>
-    <div class="info-card"><div class="info-label">Service Area</div><div class="info-val">{city if city else 'Local Area'} &amp; Nearby</div></div>
-  </div>
-</section>
-<div class="cta-wrap">
-  <div class="cta">
-    <h2>Ready to <em>get started?</em></h2>
-    <p>Call or text us today. Fast response, fair pricing, local team.</p>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <a href="tel:{phone}" class="btn-w">{phone_svg}Call {phone}</a>
-      <a href="sms:{phone}" class="btn-w2">{sms_svg}Send a Text</a>
+      <a href="tel:{phone}" class="btn btn-accent">{phone_svg}Call {phone}</a>
+      <a href="sms:{phone}" class="btn btn-white">{sms_svg}Text Us</a>
     </div>
   </div>
-</div>
+  <div class="hero-stats">{''.join(f'<div class="hstat"><span>&#10003;</span>{t}</div>' for t in trust)}</div>
+</section>
+<section class="section" id="services">
+  <div class="section-head">
+    <div class="kicker">Our Services</div>
+    <h2>Everything You Need</h2>
+    <p>Professional {cat_label.lower()} services for {city if city else 'the local area'} and nearby communities.</p>
+  </div>
+  <div class="svc-grid">{svc_cards_soft}</div>
+</section>
+<section class="about" id="about"><div class="about-inner">
+  <div class="about-text">
+    <div class="kicker">About Us</div>
+    <h2>Your Neighborhood {cat_label}</h2>
+    <p>{name} is proudly local to {city if city else 'your area'}. We built our reputation one happy customer at a time, with honest pricing and work we stand behind.</p>
+    <ul>{trust_checks}</ul>
+  </div>
+  <div class="about-photo"><img src="{photo_url}" alt="{name}"></div>
+</div></section>
+<section class="section contact" id="contact">
+  <div class="section-head">
+    <div class="kicker">Contact Us</div>
+    <h2>We Would Love to Hear From You</h2>
+  </div>
+  <div class="contact-grid">
+    <div class="contact-card"><div class="ico">&#9742;</div><h3>Phone</h3><p><a href="tel:{phone}">{phone}</a></p></div>
+    {f'<div class="contact-card"><div class="ico">&#128205;</div><h3>Address</h3><p>{address}</p></div>' if address else ''}
+    <div class="contact-card"><div class="ico">&#128336;</div><h3>Hours</h3><p>Mon&ndash;Sat 8am&ndash;6pm</p></div>
+    <div class="contact-card"><div class="ico">&#127968;</div><h3>Service Area</h3><p>{city if city else 'Local Area'} &amp; Nearby</p></div>
+  </div>
+</section>
+<section class="cta">
+  <h2>Ready When You Are</h2>
+  <p>Call or text {name} today. Fast response, fair pricing, friendly service.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <a href="tel:{phone}" class="btn btn-white">{phone_svg}Call {phone}</a>
+    <a href="sms:{phone}" class="btn" style="background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.55);">{sms_svg}Send a Text</a>
+  </div>
+</section>
 {footer_html}
 <div class="sticky-bar">
   <a href="tel:{phone}" class="sticky-call">{phone_svg}Call Now</a>

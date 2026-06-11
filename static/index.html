@@ -293,6 +293,7 @@
                 <a :href="lead.maps_url" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">Maps</a>
                 <a x-show="lead.preview_url" :href="lead.preview_url" target="_blank" class="text-xs text-green-400 hover:text-green-300 font-medium">Preview</a>
                 <button x-show="!lead.preview_url" @click="generatePreview(lead)" class="text-xs text-gray-500 hover:text-gray-300">Gen Preview</button>
+                <button @click="openThread(lead)" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">Thread</button>
                 <button @click="openNotes(lead)" class="text-xs text-gray-500 hover:text-gray-300">Notes</button>
                 <button @click="quickDeal(lead)" class="text-xs text-green-400 hover:text-green-300 font-medium">+ Deal</button>
               </div>
@@ -580,6 +581,37 @@
   </div>
 </div>
 
+<!-- THREAD MODAL -->
+<div x-show="threadModal" x-cloak class="modal-bg" @click.self="threadModal=false">
+  <div class="modal" style="max-width:520px;max-height:80vh;display:flex;flex-direction:column;">
+    <div class="flex items-center justify-between mb-1">
+      <div>
+        <h2 class="font-bold text-lg" x-text="threadLead?.name"></h2>
+        <p class="text-xs text-gray-500 font-mono" x-text="threadLead?.phone"></p>
+      </div>
+      <button @click="threadModal=false" class="text-gray-500 hover:text-gray-300 text-lg leading-none">&times;</button>
+    </div>
+    <div class="flex-1 overflow-y-auto mt-4 space-y-3 pr-1" style="min-height:200px;max-height:50vh;">
+      <div x-show="threadMessages.length === 0" class="text-center text-gray-600 text-sm py-10">No messages yet.</div>
+      <template x-for="(msg, i) in threadMessages" :key="i">
+        <div :class="msg.direction === 'inbound' ? 'flex justify-start' : 'flex justify-end'">
+          <div :class="msg.direction === 'inbound' ? 'bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm' : 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm'" style="max-width:82%;padding:10px 14px;">
+            <div class="text-sm leading-relaxed" x-text="msg.message"></div>
+            <div class="text-xs mt-1 opacity-60" x-text="msg.sent_at"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="border-t border-gray-100 pt-3 mt-3">
+      <div class="flex gap-2">
+        <input x-model="threadReply" @keydown.enter="sendThreadReply()" placeholder="Type a reply..." class="input text-sm" style="flex:1;">
+        <button @click="sendThreadReply()" :disabled="!threadReply.trim() || threadSending" class="btn-primary px-4 py-2 text-sm">Send</button>
+      </div>
+      <div x-show="threadSendResult" class="text-xs mt-2 text-center" :class="threadSendResult?.ok ? 'text-green-400' : 'text-red-400'" x-text="threadSendResult?.ok ? 'Sent.' : threadSendResult?.error"></div>
+    </div>
+  </div>
+</div>
+
 <!-- BULK SMS MODAL -->
 <div x-show="bulkSMSModal" x-cloak class="modal-bg" @click.self="bulkSMSModal=false">
   <div class="modal">
@@ -611,6 +643,12 @@ function app() {
     notesModal: false,
     showDealModal: false,
     bulkSMSModal: false,
+    threadModal: false,
+    threadLead: null,
+    threadMessages: [],
+    threadReply: '',
+    threadSending: false,
+    threadSendResult: null,
     editLead: null,
     editNotes: '',
     newDeal: { business: '', amount: '', date: new Date().toISOString().split('T')[0], notes: '' },
@@ -743,6 +781,35 @@ function app() {
     exportCSV() {
       const url = '/api/leads/export' + (this.leadStatus !== 'all' ? '?status=' + this.leadStatus : '');
       window.location.href = url;
+    },
+
+    async openThread(lead) {
+      this.threadLead = lead;
+      this.threadMessages = [];
+      this.threadReply = '';
+      this.threadSendResult = null;
+      this.threadModal = true;
+      const r = await fetch('/api/leads/' + lead.id + '/messages');
+      this.threadMessages = await r.json();
+    },
+
+    async sendThreadReply() {
+      if (!this.threadReply.trim() || this.threadSending) return;
+      this.threadSending = true;
+      this.threadSendResult = null;
+      const r = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [this.threadLead.id], message: this.threadReply.trim() })
+      });
+      this.threadSendResult = await r.json();
+      this.threadSending = false;
+      if (this.threadSendResult.ok) {
+        this.threadReply = '';
+        const r2 = await fetch('/api/leads/' + this.threadLead.id + '/messages');
+        this.threadMessages = await r2.json();
+        setTimeout(() => this.threadSendResult = null, 2000);
+      }
     },
 
     openNotes(lead) { this.editLead = lead; this.editNotes = lead.notes || ''; this.notesModal = true; },

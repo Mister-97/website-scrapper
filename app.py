@@ -91,6 +91,12 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+    # Add direction column to sms_log for conversation thread view
+    try:
+        conn.execute("ALTER TABLE sms_log ADD COLUMN direction TEXT DEFAULT 'outbound'")
+        conn.commit()
+    except Exception:
+        pass
     conn.close()
 
 
@@ -1360,8 +1366,8 @@ async def sms_reply_webhook(request: Request):
     if body.lower().strip() in STOP_WORDS:
         conn = get_db()
         conn.execute("UPDATE leads SET status='opted_out', sequence_active=0 WHERE id=?", (matched["id"],))
-        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status) VALUES (?,?,?,?)",
-                     (matched["id"], from_, f"INBOUND: {body}", "opted_out"))
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                     (matched["id"], from_, body, "opted_out", "inbound"))
         conn.commit()
         conn.close()
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
@@ -1378,8 +1384,8 @@ async def sms_reply_webhook(request: Request):
 
     conn = get_db()
     conn.execute("UPDATE leads SET status=?, sequence_active=0 WHERE id=?", (new_status, matched["id"]))
-    conn.execute("INSERT INTO sms_log (lead_id, phone, message, status) VALUES (?,?,?,?)",
-                 (matched["id"], from_, f"INBOUND: {body}", "received"))
+    conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                 (matched["id"], from_, body, "received", "inbound"))
     conn.commit()
     conn.close()
 
@@ -1408,8 +1414,8 @@ async def sms_reply_webhook(request: Request):
                 cfg["twilio_from_number"], from_, reply_msg
             )
             conn = get_db()
-            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status) VALUES (?,?,?,?)",
-                         (matched["id"], from_, reply_msg, "sent"))
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                         (matched["id"], from_, reply_msg, "sent", "outbound"))
             conn.commit()
             conn.close()
         except Exception:
@@ -1499,6 +1505,17 @@ async def delete_deal(deal_id: int):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+
+@app.get("/api/leads/{lead_id}/messages")
+async def get_lead_messages(lead_id: int):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT direction, message, status, sent_at FROM sms_log WHERE lead_id=? ORDER BY sent_at ASC",
+        (lead_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 @app.get("/", response_class=HTMLResponse)

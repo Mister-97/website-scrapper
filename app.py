@@ -102,7 +102,7 @@ def init_db():
 
 # ── Sequence templates ────────────────────────────────────────────────────────
 
-SEQUENCE = [
+_DEFAULT_SEQUENCE = [
     "Hey I was searching for {name} but couldn't find a website, do you guys have one?",
     "Yeah I actually built you a free preview to show you what it could look like. Want to see it? {preview_url}",
     "No worries if not, just didn't want you losing customers to competitors who have sites.",
@@ -110,6 +110,15 @@ SEQUENCE = [
 ]
 
 SEQUENCE_DELAYS = [0, 1, 3, 5]  # days after sequence start
+
+
+def get_sequence() -> list:
+    """Return sequence messages from config (editable in Settings) or fall back to defaults."""
+    cfg = load_config()
+    custom = cfg.get("sequence_messages")
+    if custom and len(custom) == len(_DEFAULT_SEQUENCE):
+        return custom
+    return _DEFAULT_SEQUENCE
 
 
 def classify_reply(text: str) -> str:
@@ -159,11 +168,18 @@ async def sequence_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import shutil
+    if os.path.exists(DB_PATH):
+        backup = f"leads_backup_{datetime.now().strftime('%Y%m%d')}.db"
+        if not os.path.exists(backup):
+            shutil.copy2(DB_PATH, backup)
+            print(f"[backup] Created {backup}")
     init_db()
     os.makedirs("static", exist_ok=True)
     os.makedirs("previews", exist_ok=True)
     app.mount("/previews", StaticFiles(directory="previews"), name="previews")
     task = asyncio.create_task(sequence_loop())
+    print("[tip] To keep follow-ups running while your Mac is idle: caffeinate -i python app.py")
     yield
     task.cancel()
 
@@ -549,6 +565,11 @@ def generate_preview_html(lead: dict) -> str:
     trust     = ind["trust"]
     photo_id  = ind.get("photo", "photo-1486406146926-c627a92ad1ab")
     photo_url = f"https://images.unsplash.com/{photo_id}?auto=format&fit=crop&w=1400&q=80"
+    # Use Google Maps hero photo as background when available (upscale stored thumbnail)
+    if logo_url and "googleusercontent" in logo_url:
+        hero_url = re.sub(r'=s\d+(-c)?$', '=s1400', logo_url)
+    else:
+        hero_url = photo_url
 
     logo_nav = (
         f'<img src="{logo_url}" onerror="this.style.display=\'none\'" style="height:36px;width:36px;border-radius:8px;object-fit:cover;">'
@@ -605,7 +626,7 @@ nav{{background:rgba(20,18,16,.96);border-bottom:1px solid rgba(241,233,216,.12)
 .nav-book{{border:1px solid var(--gold);color:var(--gold) !important;padding:11px 26px;}}
 .nav-book:hover{{background:var(--gold);color:#141210 !important;}}
 .hero{{position:relative;min-height:88vh;display:flex;align-items:center;justify-content:center;text-align:center;}}
-.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
+.hero-bg{{position:absolute;inset:0;background:url('{hero_url}') center/cover;}}
 .hero-overlay{{position:absolute;inset:0;background:rgba(20,18,16,.74);}}
 .hero-inner{{position:relative;z-index:2;max-width:740px;padding:90px 20px;}}
 .hero-eyebrow{{color:var(--gold);font-size:12px;font-weight:600;letter-spacing:.34em;text-transform:uppercase;margin-bottom:22px;}}
@@ -731,7 +752,7 @@ nav{{background:rgba(255,253,250,.96);backdrop-filter:blur(8px);border-bottom:1p
 .nav-book{{border:1px solid var(--rose);color:var(--rose) !important;padding:11px 28px;border-radius:0;}}
 .nav-book:hover{{background:var(--rose);color:#fff !important;}}
 .hero{{position:relative;min-height:82vh;display:flex;align-items:center;justify-content:center;text-align:center;}}
-.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
+.hero-bg{{position:absolute;inset:0;background:url('{hero_url}') center/cover;}}
 .hero-overlay{{position:absolute;inset:0;background:rgba(43,36,30,.5);}}
 .hero-inner{{position:relative;z-index:2;max-width:760px;padding:90px 20px;}}
 .hero-welcome{{color:#fff;font-size:12.5px;font-weight:500;letter-spacing:.42em;text-transform:uppercase;margin-bottom:20px;opacity:.92;}}
@@ -867,7 +888,7 @@ nav{{background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.1);position:sticky;top:0;z
 .nav-links a:hover{{color:{accent};}}
 .nav-call{{background:{accent};color:#fff !important;font-weight:700;padding:12px 24px;letter-spacing:.06em;}}
 .hero{{position:relative;min-height:78vh;display:flex;align-items:center;}}
-.hero-bg{{position:absolute;inset:0;background:url('{photo_url}') center/cover;}}
+.hero-bg{{position:absolute;inset:0;background:url('{hero_url}') center/cover;}}
 .hero-overlay{{position:absolute;inset:0;background:linear-gradient(90deg,rgba(12,14,17,.88) 0%,rgba(12,14,17,.55) 60%,rgba(12,14,17,.3) 100%);}}
 .hero-inner{{position:relative;z-index:2;max-width:1160px;margin:0 auto;padding:90px 20px;width:100%;}}
 .hero-kicker{{display:inline-block;background:{accent};color:#fff;font-family:'Oswald',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;padding:7px 16px;margin-bottom:20px;}}
@@ -1048,9 +1069,10 @@ async def scrape_status():
 
 
 @app.get("/api/leads")
-async def get_leads(status: Optional[str] = None, search: Optional[str] = None):
+async def get_leads(status: Optional[str] = None, search: Optional[str] = None,
+                    page: int = 1, page_size: int = 50):
     conn = get_db()
-    query = "SELECT * FROM leads"
+    base = "FROM leads"
     params, conditions = [], []
     if status and status != "all":
         conditions.append("status = ?")
@@ -1058,12 +1080,12 @@ async def get_leads(status: Optional[str] = None, search: Optional[str] = None):
     if search:
         conditions.append("(name LIKE ? OR phone LIKE ? OR address LIKE ? OR category LIKE ?)")
         params += [f"%{search}%"] * 4
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-    query += " ORDER BY created_at DESC"
-    rows = [dict(r) for r in conn.execute(query, params).fetchall()]
+    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+    total = conn.execute(f"SELECT COUNT(*) {base}{where}", params).fetchone()[0]
+    offset = (page - 1) * page_size
+    rows = [dict(r) for r in conn.execute(f"SELECT * {base}{where} ORDER BY created_at DESC LIMIT ? OFFSET ?", params + [page_size, offset]).fetchall()]
     conn.close()
-    return rows
+    return {"leads": rows, "total": total, "page": page, "pages": max(1, -(-total // page_size))}
 
 
 @app.patch("/api/leads/{lead_id}")
@@ -1256,7 +1278,7 @@ async def sequence_start(request: Request):
         if not lead.get("phone") or lead.get("status") in ("opted_out", "has_website"):
             continue
         city = (lead.get("location") or "your area").split(",")[0].split(" IL")[0].strip()
-        msg  = SEQUENCE[0].replace("{name}", lead["name"]).replace("{preview_url}", absolute_url(ensure_preview(lead))).replace("{category}", lead.get("category") or "business").replace("{city}", city)
+        msg  = get_sequence()[0].replace("{name}", lead["name"]).replace("{preview_url}", absolute_url(ensure_preview(lead))).replace("{category}", lead.get("category") or "business").replace("{city}", city)
         try:
             await asyncio.sleep(1.1)
             send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
@@ -1281,14 +1303,15 @@ async def process_due_sequences() -> int:
 
     now  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn = get_db()
-    due  = conn.execute("SELECT * FROM leads WHERE sequence_active=1 AND follow_up_at <= ? AND sequence_step < ? AND status NOT IN ('replied','closed','opted_out','has_website')", (now, len(SEQUENCE))).fetchall()
+    due  = conn.execute("SELECT * FROM leads WHERE sequence_active=1 AND follow_up_at <= ? AND sequence_step < ? AND status NOT IN ('replied','closed','opted_out','has_website')", (now, len(get_sequence()))).fetchall()
     conn.close()
 
     sent = 0
     for lead in due:
         lead = dict(lead)
         step = lead["sequence_step"]
-        if step >= len(SEQUENCE):
+        seq = get_sequence()
+        if step >= len(seq):
             conn = get_db()
             conn.execute("UPDATE leads SET sequence_active=0 WHERE id=?", (lead["id"],))
             conn.commit()
@@ -1297,13 +1320,13 @@ async def process_due_sequences() -> int:
 
         city    = (lead.get("location") or "your area").split(",")[0].split(" IL")[0].strip()
         preview = absolute_url(ensure_preview(lead))
-        msg     = SEQUENCE[step].replace("{name}", lead["name"]).replace("{preview_url}", preview).replace("{category}", lead.get("category") or "business").replace("{city}", city)
+        msg     = seq[step].replace("{name}", lead["name"]).replace("{preview_url}", preview).replace("{category}", lead.get("category") or "business").replace("{city}", city)
 
         try:
             await asyncio.sleep(1.1)
             send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
             next_step = step + 1
-            if next_step < len(SEQUENCE):
+            if next_step < len(seq):
                 follow_up_at = (datetime.now() + timedelta(days=SEQUENCE_DELAYS[next_step] - SEQUENCE_DELAYS[step])).strftime("%Y-%m-%d %H:%M:%S")
                 active = 1
             else:
@@ -1370,6 +1393,19 @@ async def sms_reply_webhook(request: Request):
                      (matched["id"], from_, body, "opted_out", "inbound"))
         conn.commit()
         conn.close()
+        cfg = load_config()
+        if all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")]):
+            try:
+                conf_msg = "You have been unsubscribed and will receive no further messages from us."
+                send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"],
+                                cfg["twilio_from_number"], from_, conf_msg)
+                conn = get_db()
+                conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                             (matched["id"], from_, conf_msg, "sent", "outbound"))
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
     intent = classify_reply(body)
@@ -1502,6 +1538,41 @@ async def add_deal(request: Request):
 async def delete_deal(deal_id: int):
     conn = get_db()
     conn.execute("DELETE FROM deals WHERE id = ?", (deal_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/sequence/messages")
+async def get_sequence_messages():
+    return {"messages": get_sequence(), "defaults": _DEFAULT_SEQUENCE}
+
+
+@app.post("/api/sequence/messages")
+async def save_sequence_messages(request: Request):
+    body = await request.json()
+    messages = body.get("messages", [])
+    if len(messages) != len(_DEFAULT_SEQUENCE):
+        return JSONResponse({"ok": False, "error": f"Must provide exactly {len(_DEFAULT_SEQUENCE)} messages"})
+    save_config({"sequence_messages": messages})
+    return {"ok": True}
+
+
+@app.post("/api/leads/{lead_id}/log-message")
+async def log_manual_message(lead_id: int, request: Request):
+    """Log a message you sent from your personal phone without going through Twilio."""
+    body = await request.json()
+    text = (body.get("message") or "").strip()
+    direction = body.get("direction", "outbound")
+    if not text:
+        return JSONResponse({"ok": False, "error": "No message provided"})
+    conn = get_db()
+    lead = conn.execute("SELECT phone FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not lead:
+        conn.close()
+        return JSONResponse({"ok": False, "error": "Lead not found"})
+    conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                 (lead_id, lead["phone"], text, "manual", direction))
     conn.commit()
     conn.close()
     return {"ok": True}

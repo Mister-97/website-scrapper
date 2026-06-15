@@ -1607,6 +1607,13 @@ async def test_notify():
 @app.post("/api/sync-twilio-replies")
 async def sync_twilio_replies():
     """Pull inbound messages from Twilio API and backfill sms_log for any that are missing."""
+    import traceback as _tb
+    try:
+        return await _sync_twilio_replies_inner()
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e), "trace": _tb.format_exc()})
+
+async def _sync_twilio_replies_inner():
     cfg = load_config()
     account_sid = cfg.get("twilio_account_sid")
     auth_token  = cfg.get("twilio_auth_token")

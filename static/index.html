@@ -260,6 +260,7 @@
           <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Category</th>
           <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Location</th>
           <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Status</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Contacted</th>
           <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Actions</th>
         </tr>
       </thead>
@@ -300,6 +301,7 @@
               <div x-show="lead.sequence_active" class="text-xs text-indigo-400 mt-1 font-medium" x-text="`Seq step ${lead.sequence_step}/${lead.sequence_step >= 4 ? 4 : 4}`">
               </div>
             </td>
+            <td class="px-4 py-3 text-xs text-gray-500" x-text="lead.first_contacted_at ? new Date(lead.first_contacted_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—'"></td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                 <a :href="lead.maps_url" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">Maps</a>
@@ -313,7 +315,7 @@
           </tr>
         </template>
         <tr x-show="leads.length === 0">
-          <td colspan="7" class="px-4 py-20 text-center">
+          <td colspan="8" class="px-4 py-20 text-center">
             <div class="text-gray-700 text-sm">No leads yet. Run the scraper to get started.</div>
           </td>
         </tr>

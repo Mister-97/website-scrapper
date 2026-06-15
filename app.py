@@ -133,6 +133,11 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+    try:
+        conn.execute("ALTER TABLE leads ADD COLUMN first_contacted_at TEXT")
+        conn.commit()
+    except Exception:
+        pass
     conn.close()
 
 
@@ -1336,7 +1341,7 @@ async def sequence_start(request: Request):
             send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
             follow_up_at = (now + timedelta(days=SEQUENCE_DELAYS[1])).strftime("%Y-%m-%d %H:%M:%S")
             conn = get_db()
-            conn.execute("UPDATE leads SET sequence_active=1, sequence_step=1, follow_up_at=?, status=CASE WHEN status='new' THEN 'contacted' ELSE status END, sms_sent=sms_sent+1 WHERE id=?", (follow_up_at, lead["id"]))
+            conn.execute("UPDATE leads SET sequence_active=1, sequence_step=1, follow_up_at=?, status=CASE WHEN status='new' THEN 'contacted' ELSE status END, sms_sent=sms_sent+1, first_contacted_at=COALESCE(first_contacted_at, ?) WHERE id=?", (follow_up_at, now.strftime("%Y-%m-%d %H:%M:%S"), lead["id"]))
             conn.execute("INSERT INTO sms_log (lead_id, phone, message, status) VALUES (?,?,?,?)", (lead["id"], lead["phone"], msg, "sent"))
             conn.commit()
             conn.close()

@@ -1567,6 +1567,69 @@ async def sms_reply_webhook(request: Request):
         except Exception:
             pass
 
+    elif intent == "has_website" and has_twilio:
+        # They have something (website, Instagram, Facebook) - pitch AI visibility
+        t = body.lower()
+        if any(w in t for w in ["instagram", "facebook", "tiktok", "social"]):
+            reply_msg = (
+                f"That is a great start. One thing social media cannot do though is show up when someone Googles "
+                f"\"{matched.get('category','your business')} near me\" - that is where a real site makes the difference. "
+                f"I already built you a free preview, want me to send it over?"
+            )
+        else:
+            reply_msg = (
+                f"Got it, good to know. One thing a lot of businesses are missing in 2026 is AI search visibility, "
+                f"when someone asks ChatGPT or Google AI to recommend a {matched.get('category','business')} in your area, "
+                f"your site needs to be optimized for that. We handle it. Want to see a free preview of what that looks like?"
+            )
+        try:
+            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], from_, reply_msg)
+            conn = get_db()
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                         (matched["id"], from_, reply_msg, "sent", "outbound"))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+    elif intent == "other" and has_twilio:
+        # Catch-all: unknown reply - respond based on what they likely said
+        t = body.lower()
+        if any(w in t for w in ["who", "who's this", "who is this", "who are you"]):
+            reply_msg = (
+                f"Hey, this is Josh. I build free website previews for local businesses. "
+                f"I searched for {matched['name']} online and could not find a site, so I already built you one. "
+                f"Want me to send the link?"
+            )
+        elif any(w in t for w in ["not interested", "don't need", "dont need", "no thanks", "no thank", "stop", "remove"]):
+            reply_msg = (
+                f"Totally fair. I will leave you alone. If you ever change your mind the preview will be here. Good luck!"
+            )
+        elif any(w in t for w in ["how much", "cost", "price", "charge", "fee", "pay"]):
+            reply_msg = (
+                f"The preview is completely free. If you decide to go live with it we talk pricing then, "
+                f"but there is zero cost to look. Want me to send the link?"
+            )
+        elif any(w in t for w in ["busy", "call", "phone", "later", "not now"]):
+            reply_msg = (
+                f"No worries at all, I will keep it short. I built a free website preview for {matched['name']}, "
+                f"just send a reply whenever you want the link. No pressure."
+            )
+        else:
+            reply_msg = (
+                f"Appreciate the reply. Quick thing - I already built a free website preview for {matched['name']}. "
+                f"Want me to send it over? Takes 2 seconds to look at."
+            )
+        try:
+            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], from_, reply_msg)
+            conn = get_db()
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                         (matched["id"], from_, reply_msg, "sent", "outbound"))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
     # Notify Josh with intent context
     notify_number = cfg.get("notify_number")
     if notify_number and has_twilio:

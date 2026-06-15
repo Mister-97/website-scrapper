@@ -30,17 +30,6 @@ scraper_log: list[str] = []
 
 
 def shorten_url(url: str) -> str:
-    """Return a TinyURL shortened link, or the original if the request fails."""
-    try:
-        r = http_requests.get(
-            "https://tinyurl.com/api-create.php",
-            params={"url": url},
-            timeout=5,
-        )
-        if r.ok and r.text.startswith("https://"):
-            return r.text.strip()
-    except Exception:
-        pass
     return url
 
 

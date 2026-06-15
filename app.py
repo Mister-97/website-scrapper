@@ -200,6 +200,7 @@ async def lifespan(app: FastAPI):
     os.makedirs("static", exist_ok=True)
     os.makedirs(PREVIEWS_DIR, exist_ok=True)
     app.mount("/previews", StaticFiles(directory=PREVIEWS_DIR), name="previews")
+    app.mount("/static", StaticFiles(directory="static"), name="static")
     task = asyncio.create_task(sequence_loop())
     print("[tip] To keep follow-ups running while your Mac is idle: caffeinate -i python app.py")
     yield

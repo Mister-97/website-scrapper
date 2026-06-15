@@ -671,7 +671,7 @@
       <template x-for="(msg, i) in threadMessages" :key="i">
         <div :class="msg.direction === 'inbound' ? 'flex justify-start' : 'flex justify-end'">
           <div :class="msg.direction === 'inbound' ? 'bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm' : 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm'" style="max-width:82%;padding:10px 14px;">
-            <div class="text-sm leading-relaxed" x-text="msg.message"></div>
+            <div class="text-sm leading-relaxed" x-html="linkify(msg.message)"></div>
             <div class="flex items-center gap-1.5 mt-1">
               <span class="text-xs opacity-60" x-text="fmtMsgTime(msg.sent_at)"></span>
               <template x-if="msg.direction !== 'inbound' && msg.delivery_status">
@@ -950,6 +950,12 @@ function app() {
         this.threadMessages = await r2.json();
         setTimeout(() => this.threadSendResult = null, 2000);
       }
+    },
+
+    linkify(text) {
+      if (!text) return '';
+      const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" style="text-decoration:underline;opacity:0.9;">$1</a>');
     },
 
     fmtMsgTime(ts) {

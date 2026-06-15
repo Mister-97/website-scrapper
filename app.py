@@ -1160,7 +1160,14 @@ async def get_leads(status: Optional[str] = None, search: Optional[str] = None,
     where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
     total = conn.execute(f"SELECT COUNT(*) {base}{where}", params).fetchone()[0]
     offset = (page - 1) * page_size
-    rows = [dict(r) for r in conn.execute(f"SELECT * {base}{where} ORDER BY created_at DESC LIMIT ? OFFSET ?", params + [page_size, offset]).fetchall()]
+    # Sort: leads whose last sms_log entry is inbound (needs reply) float to top,
+    # then by most recent sms activity, then by created_at
+    order = """ORDER BY
+        CASE WHEN (
+            SELECT direction FROM sms_log WHERE lead_id=leads.id ORDER BY sent_at DESC LIMIT 1
+        ) = 'inbound' THEN 0 ELSE 1 END ASC,
+        COALESCE((SELECT sent_at FROM sms_log WHERE lead_id=leads.id ORDER BY sent_at DESC LIMIT 1), created_at) DESC"""
+    rows = [dict(r) for r in conn.execute(f"SELECT * {base}{where} {order} LIMIT ? OFFSET ?", params + [page_size, offset]).fetchall()]
     conn.close()
     return {"leads": rows, "total": total, "page": page, "pages": max(1, -(-total // page_size))}
 

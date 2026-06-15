@@ -70,6 +70,7 @@
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
       Leads
       <span x-show="stats.total > 0" class="ml-auto text-xs font-bold text-indigo-400" x-text="stats.total"></span>
+      <span x-show="replyCount > 0" class="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" :class="stats.total > 0 ? '-ml-1' : 'ml-auto'"></span>
     </div>
     <div @click="tab='outreach'" :class="tab==='outreach' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
@@ -719,6 +720,7 @@ function app() {
     deals: [],
     selectedIds: [],
     allPagesSelected: false,
+    replyCount: 0,
     bulkStatusVal: '',
     scraping: false,
     scrapeLog: [],
@@ -778,6 +780,8 @@ function app() {
     async loadStats() {
       const r = await fetch('/api/stats');
       this.stats = await r.json();
+      const s = this.stats.by_status || {};
+      this.replyCount = ['replied','claimed','building','preview_sent'].reduce((n, k) => n + (s[k] || 0), 0);
     },
 
     renderCharts() {

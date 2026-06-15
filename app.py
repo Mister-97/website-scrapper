@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Optional
 
+import requests as http_requests
 import uvicorn
 from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -25,6 +26,21 @@ DB_PATH    = os.path.join(DATA_DIR, "leads.db")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 scraper_running = False
 scraper_log: list[str] = []
+
+
+def shorten_url(url: str) -> str:
+    """Return a TinyURL shortened link, or the original if the request fails."""
+    try:
+        r = http_requests.get(
+            "https://tinyurl.com/api-create.php",
+            params={"url": url},
+            timeout=5,
+        )
+        if r.ok and r.text.startswith("https://"):
+            return r.text.strip()
+    except Exception:
+        pass
+    return url
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -1471,7 +1487,7 @@ async def sms_reply_webhook(request: Request):
         try:
             preview_path = ensure_preview(matched)
             base = (cfg.get("base_url") or str(request.base_url)).rstrip("/")
-            preview_link = f"{base}{preview_path}"
+            preview_link = shorten_url(f"{base}{preview_path}")
 
             conn = get_db()
             conn.execute("UPDATE leads SET status='preview_sent' WHERE id=?", (matched["id"],))

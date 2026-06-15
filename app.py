@@ -25,6 +25,7 @@ DATA_DIR    = os.environ.get("DATA_DIR", ".")
 DB_PATH    = os.path.join(DATA_DIR, "leads.db")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 scraper_running = False
+scraper_stop_requested = False
 scraper_log: list[str] = []
 
 
@@ -246,8 +247,9 @@ app = FastAPI(lifespan=lifespan)
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
 async def run_scraper(categories: list[str], locations: list[str]):
-    global scraper_running, scraper_log
+    global scraper_running, scraper_stop_requested, scraper_log
     scraper_running = True
+    scraper_stop_requested = False
     scraper_log = []
 
     def log(msg):
@@ -274,6 +276,9 @@ async def run_scraper(categories: list[str], locations: list[str]):
 
             for location in locations:
                 for category in categories:
+                    if scraper_stop_requested:
+                        log("Scrape stopped early by user.")
+                        break
                     log(f"Searching: {category} in {location}")
                     found = 0
                     try:
@@ -356,6 +361,8 @@ async def run_scraper(categories: list[str], locations: list[str]):
                     except Exception as e:
                         log(f"  Error: {e}")
                     await asyncio.sleep(0.5)
+                if scraper_stop_requested:
+                    break
 
             await browser.close()
 
@@ -1128,6 +1135,13 @@ async def start_scrape(request: Request, background_tasks: BackgroundTasks):
 @app.get("/api/scrape/status")
 async def scrape_status():
     return {"running": scraper_running, "log": scraper_log[-50:]}
+
+
+@app.post("/api/scrape/stop")
+async def scrape_stop():
+    global scraper_stop_requested
+    scraper_stop_requested = True
+    return {"ok": True}
 
 
 @app.get("/api/leads")

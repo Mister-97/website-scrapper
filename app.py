@@ -27,19 +27,37 @@ scraper_running = False
 scraper_log: list[str] = []
 
 
-# ── Config (Twilio creds stored locally) ──────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────
+# Sensitive Twilio creds are read from environment variables first.
+# Non-sensitive config (sequences, base_url, notify_number) lives in config.json.
+
+_ENV_KEYS = {
+    "twilio_account_sid": "TWILIO_ACCOUNT_SID",
+    "twilio_auth_token":  "TWILIO_AUTH_TOKEN",
+    "twilio_from_number": "TWILIO_FROM_NUMBER",
+}
 
 def load_config():
+    cfg: dict = {}
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH) as f:
-            return json.load(f)
-    return {}
+            cfg = json.load(f)
+    # Env vars override config.json for sensitive fields
+    for cfg_key, env_key in _ENV_KEYS.items():
+        val = os.environ.get(env_key)
+        if val:
+            cfg[cfg_key] = val
+    return cfg
 
 def save_config(data: dict):
     existing = load_config()
-    existing.update(data)
+    # Never persist creds that come from env vars back to disk
+    env_sourced = {k for k, v in _ENV_KEYS.items() if os.environ.get(v)}
+    for k, v in data.items():
+        if k not in env_sourced:
+            existing[k] = v
     with open(CONFIG_PATH, "w") as f:
-        json.dump(existing, f, indent=2)
+        json.dump({k: v for k, v in existing.items() if k not in env_sourced}, f, indent=2)
 
 
 # ── Database ──────────────────────────────────────────────────────────────────

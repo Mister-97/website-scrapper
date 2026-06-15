@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Josh HVAC | Hvac in Fort Worth TX</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Barlow',sans-serif;color:#23272d;background:#fff;min-height:100vh;padding-bottom:70px;}
+.preview-bar{background:#0c0e11;color:#fff;text-align:center;padding:8px 16px;font-size:12px;font-weight:600;}
+.preview-bar a{color:#0096c7;text-decoration:none;margin-left:6px;font-weight:700;}
+.topbar{background:#16191e;color:#aab2bc;font-size:12.5px;}
+.topbar-inner{max-width:1160px;margin:0 auto;padding:8px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.topbar a{color:#fff;font-weight:700;text-decoration:none;}
+.topbar a span{color:#0096c7;}
+nav{background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.1);position:sticky;top:0;z-index:100;}
+.nav-inner{max-width:1160px;margin:0 auto;padding:0 20px;height:76px;display:flex;align-items:center;justify-content:space-between;}
+.nav-brand{display:flex;align-items:center;gap:11px;}
+.nav-name{font-family:'Oswald',sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em;text-transform:uppercase;color:#16191e;}
+.nav-links{display:flex;align-items:center;gap:26px;}
+.nav-links a{font-size:13.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#3d434b;text-decoration:none;}
+.nav-links a:hover{color:#0096c7;}
+.nav-call{background:#0096c7;color:#fff !important;font-weight:700;padding:12px 24px;letter-spacing:.06em;}
+.hero{position:relative;min-height:78vh;display:flex;align-items:center;}
+.hero-bg{position:absolute;inset:0;background:url('https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=1400&q=80') center/cover;}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(12,14,17,.88) 0%,rgba(12,14,17,.55) 60%,rgba(12,14,17,.3) 100%);}
+.hero-inner{position:relative;z-index:2;max-width:1160px;margin:0 auto;padding:90px 20px;width:100%;}
+.hero-kicker{display:inline-block;background:#0096c7;color:#fff;font-family:'Oswald',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;padding:7px 16px;margin-bottom:20px;}
+.hero h1{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(2.1rem,5.4vw,3.8rem);line-height:1.1;color:#fff;max-width:700px;margin-bottom:16px;letter-spacing:.01em;}
+.hero p{color:rgba(255,255,255,.85);font-size:1.05rem;line-height:1.7;max-width:560px;margin-bottom:30px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:14.5px;letter-spacing:.05em;text-transform:uppercase;padding:16px 30px;text-decoration:none;}
+.btn-accent{background:#0096c7;color:#fff;}
+.btn-white{background:#fff;color:#16191e;}
+.btn-line{border:2px solid rgba(255,255,255,.6);color:#fff;}
+.trustline{background:#16191e;}
+.trustline-inner{max-width:1160px;margin:0 auto;padding:22px 20px;display:flex;justify-content:center;gap:40px;flex-wrap:wrap;}
+.trustline span{color:#fff;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;}
+.trustline b{color:#0096c7;font-size:16px;}
+.section{max-width:1160px;margin:0 auto;padding:84px 20px;}
+.sec-head{margin-bottom:42px;}
+.sec-head .kicker{color:#0096c7;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px;}
+.sec-head h2{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(1.7rem,3.6vw,2.5rem);color:#16191e;}
+.pro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px;}
+.pro-card{border:1px solid #e3e7ec;border-top:3px solid #0096c7;padding:30px 28px;background:#fff;transition:.2s;}
+.pro-card:hover{box-shadow:0 12px 30px rgba(22,25,30,.1);}
+.pro-ico{margin-bottom:14px;display:flex;}
+.pro-card h3{font-family:'Oswald',sans-serif;font-weight:600;text-transform:uppercase;font-size:16.5px;letter-spacing:.04em;color:#16191e;margin-bottom:9px;}
+.pro-card p{font-size:14px;color:#5b626c;line-height:1.7;margin-bottom:16px;}
+.pro-card a{color:#0096c7;font-weight:700;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;text-decoration:none;}
+.why{background:#16191e;}
+.why-inner{max-width:1160px;margin:0 auto;padding:84px 20px;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;}
+@media(max-width:820px){.why-inner{grid-template-columns:1fr;}}
+.why-photo img{width:100%;aspect-ratio:4/3.1;object-fit:cover;display:block;border:3px solid #0096c7;}
+.why-text .kicker{color:#0096c7;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;}
+.why-text h2{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;font-size:clamp(1.6rem,3.2vw,2.2rem);color:#fff;margin-bottom:16px;}
+.why-text p{color:#aab2bc;line-height:1.8;margin-bottom:24px;}
+.why-text ul{list-style:none;display:flex;flex-direction:column;gap:13px;}
+.why-text li{display:flex;gap:12px;align-items:center;font-size:15px;font-weight:600;color:#fff;}
+.why-text li span{width:24px;height:24px;background:#0096c7;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.contact{max-width:1160px;margin:0 auto;padding:84px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;}
+.c-card{border:1px solid #e3e7ec;padding:28px;}
+.c-card h3{font-family:'Oswald',sans-serif;font-weight:600;text-transform:uppercase;font-size:13px;letter-spacing:.12em;color:#8a919b;margin-bottom:8px;}
+.c-card p{font-size:15.5px;font-weight:600;color:#16191e;line-height:1.6;}
+.c-card a{color:#0096c7;text-decoration:none;font-weight:700;}
+.cta{background:#0096c7;}
+.cta-inner{max-width:1160px;margin:0 auto;padding:64px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;}
+.cta h2{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;color:#fff;font-size:clamp(1.5rem,3.2vw,2.2rem);}
+.cta p{color:rgba(255,255,255,.85);margin-top:6px;font-size:15px;}
+.sticky-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e3e7ec;box-shadow:0 -4px 18px rgba(0,0,0,.1);padding:10px 16px;display:flex;gap:10px;z-index:200;}
+.sticky-call{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#0096c7;color:#fff;font-weight:700;font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;padding:14px;text-decoration:none;}
+.sticky-claim{flex:1;display:flex;align-items:center;justify-content:center;background:#16191e;color:#fff;font-weight:600;font-size:13px;letter-spacing:.03em;text-transform:uppercase;padding:14px;text-decoration:none;}
+@media(max-width:700px){.nav-links a:not(.nav-call){display:none;} .topbar-inner{justify-content:center;}}
+</style></head><body>
+<div class="preview-bar">This is a FREE preview website built for Josh HVAC.<a href="sms:+18444608481?&body=I%20want%20to%20claim%20the%20website%20for%20Josh%20HVAC">Text us to claim it</a></div>
+<div class="topbar"><div class="topbar-inner">
+  <span>Serving Fort Worth TX &amp; surrounding &nbsp;&bull;&nbsp; Mon&ndash;Sat 8am&ndash;6pm</span>
+  <a href="tel:+17083787367" style="display:inline-flex;align-items:center;gap:7px;"><svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>+17083787367</a>
+</div></div>
+<nav><div class="nav-inner">
+  <div class="nav-brand"><div style="width:36px;height:36px;border-radius:8px;background:#0096c7;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:white;flex-shrink:0;">J</div><span class="nav-name">Josh HVAC</span></div>
+  <div class="nav-links">
+    <a href="#services">Services</a>
+    <a href="#why">Why Us</a>
+    <a href="#contact">Contact</a>
+    <a href="tel:+17083787367" class="nav-call">Free Estimate</a>
+  </div>
+</div></nav>
+<section class="hero">
+  <div class="hero-bg"></div><div class="hero-overlay"></div>
+  <div class="hero-inner">
+    <div class="hero-kicker">24/7 Emergency Service</div>
+    <h1>Fort Worth TX-Based Hvac Experts</h1>
+    <p>Heating, cooling, and air quality solutions for your home or business. 24/7 emergency service available.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="tel:+17083787367" class="btn btn-accent">Call +17083787367</a>
+      <a href="sms:+17083787367" class="btn btn-white">Free Estimate</a>
+      <a href="sms:+17083787367" class="btn btn-line">Text Us</a>
+    </div>
+  </div>
+</section>
+<div class="trustline"><div class="trustline-inner">
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>24/7 Emergency Service</span><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>All Brands Serviced</span><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>Financing Available</span>
+</div></div>
+<section class="section" id="services">
+  <div class="sec-head">
+    <div class="kicker">What We Do</div>
+    <h2>Our Services</h2>
+  </div>
+  <div class="pro-grid"><div class="pro-card"><div class="pro-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><h3>AC Repair</h3><p>Professional ac repair done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:+17083787367">Free Estimate &rarr;</a></div><div class="pro-card"><div class="pro-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></div><h3>Furnace Service</h3><p>Professional furnace service done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:+17083787367">Free Estimate &rarr;</a></div><div class="pro-card"><div class="pro-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><h3>Installation</h3><p>Professional installation done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:+17083787367">Free Estimate &rarr;</a></div><div class="pro-card"><div class="pro-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><h3>Maintenance Plans</h3><p>Professional maintenance plans done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:+17083787367">Free Estimate &rarr;</a></div><div class="pro-card"><div class="pro-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><h3>Duct Cleaning</h3><p>Professional duct cleaning done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:+17083787367">Free Estimate &rarr;</a></div><div class="pro-card"><div class="pro-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0096c7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><h3>Emergency Service</h3><p>Professional emergency service done right by an experienced local team, with honest pricing and quality workmanship you can count on.</p><a href="tel:+17083787367">Free Estimate &rarr;</a></div></div>
+</section>
+<section class="why" id="why"><div class="why-inner">
+  <div class="why-text">
+    <div class="kicker">Why Josh HVAC</div>
+    <h2>Done Right the First Time</h2>
+    <p>Josh HVAC is locally owned and operated in Fort Worth TX. No call centers, no subcontractors, no runaround. You deal directly with the people doing the work.</p>
+    <ul><li><span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg></span>24/7 Emergency Service</li><li><span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg></span>All Brands Serviced</li><li><span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg></span>Financing Available</li></ul>
+  </div>
+  <div class="why-photo"><img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=1400&q=80" alt="Josh HVAC"></div>
+</div></section>
+<section class="contact" id="contact">
+  <div class="c-card"><h3>Phone</h3><p><a href="tel:+17083787367">+17083787367</a></p></div>
+  <div class="c-card"><h3>Address</h3><p>Fort Worth, TX</p></div>
+  <div class="c-card"><h3>Hours</h3><p>Mon&ndash;Sat 8am&ndash;6pm<br>Emergency? Just call.</p></div>
+  <div class="c-card"><h3>Service Area</h3><p>Fort Worth TX &amp; surrounding communities</p></div>
+</section>
+<section class="cta"><div class="cta-inner">
+  <div><h2>Get Your Free Estimate</h2><p>Fast response. Upfront pricing. Quality guaranteed.</p></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <a href="tel:+17083787367" class="btn btn-white">Call +17083787367</a>
+    <a href="sms:+17083787367" class="btn btn-line">Text Us</a>
+  </div>
+</div></section>
+<footer style="background:#111827;color:#9ca3af;padding:40px 5%;text-align:center;">
+  <div style="font-weight:800;font-size:18px;color:#fff;margin-bottom:4px;">Josh HVAC</div>
+  <div style="font-size:13px;margin-bottom:4px;">Hvac in Fort Worth TX</div>
+  <div style="font-size:13px;margin-bottom:4px;">Fort Worth, TX</div>
+  <div style="font-size:13px;margin-bottom:16px;"><a href="tel:+17083787367" style="color:#0096c7;text-decoration:none;font-weight:700;">+17083787367</a></div>
+  <div style="border-top:1px solid #1f2937;padding-top:16px;font-size:12px;color:#4b5563;">
+    &copy; Josh HVAC. This is a free preview website.
+    <a href="sms:+18444608481?&body=I%20want%20to%20claim%20the%20website%20for%20Josh%20HVAC" style="color:#0096c7;text-decoration:none;margin-left:8px;font-weight:600;">Claim it today.</a>
+  </div>
+</footer>
+<div class="sticky-bar">
+  <a href="tel:+17083787367" class="sticky-call">Call Now</a>
+  <a href="sms:+18444608481?&body=I%20want%20to%20claim%20the%20website%20for%20Josh%20HVAC" class="sticky-claim">Claim This Site Free</a>
+</div>
+</body></html>

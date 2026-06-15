@@ -1656,6 +1656,13 @@ async def sync_twilio_replies():
             "INSERT INTO sms_log (lead_id, phone, message, status, direction, twilio_sid, sent_at) VALUES (?,?,?,?,?,?,?)",
             (lead["id"], msg.get("from", ""), body, "received", "inbound", sid, sent_at)
         )
+        # Update lead status to replied if still in contacted state
+        current = lead.get("status", "")
+        if current in ("contacted", "new"):
+            intent = classify_reply(body, current_status=current)
+            new_status = {"claim": "claimed", "has_website": "has_website", "no_website": "building"}.get(intent, "replied")
+            conn.execute("UPDATE leads SET status=?, sequence_active=0 WHERE id=?", (new_status, lead["id"]))
+            leads[from_digits]["status"] = new_status
         imported += 1
 
     conn.commit()

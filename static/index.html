@@ -210,6 +210,7 @@
       </span>
     </button>
     <button x-show="scraping" @click="stopScrape()" class="px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors">Stop</button>
+    <button x-show="!scraping" @click="syncToRender()" :disabled="syncing" class="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors" x-text="syncing ? 'Syncing...' : 'Push to Render'"></button>
     <span class="text-sm text-gray-600" x-show="selectedCats.length && selectedLocs.length && !scraping" x-text="`${selectedCats.length} industries × ${selectedLocs.length} locations`"></span>
   </div>
 
@@ -744,6 +745,7 @@ function app() {
     threadSending: false,
     threadSendResult: null,
     syncingReplies: false,
+    syncing: false,
     editLead: null,
     editNotes: '',
     newDeal: { business: '', amount: '', date: new Date().toISOString().split('T')[0], notes: '' },
@@ -781,6 +783,7 @@ function app() {
       this.renderCharts();
       setInterval(() => this.pollScraper(), 2500);
       setInterval(() => this.loadSeqStatus(), 30000);
+      setInterval(() => this.autoRefresh(), 20000);
     },
 
     async loadStats() {
@@ -968,6 +971,27 @@ function app() {
       const d = new Date(ts.replace(' ', 'T') + (ts.includes('T') ? '' : 'Z'));
       if (isNaN(d)) return ts;
       return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+    },
+
+    async autoRefresh() {
+      const prevReply = this.replyCount;
+      await this.loadStats();
+      if (this.tab === 'leads') await this.loadLeads();
+      if (this.replyCount > prevReply) {
+        toast(`New reply received. ${this.replyCount} lead${this.replyCount === 1 ? '' : 's'} need attention.`);
+      }
+    },
+
+    async syncToRender() {
+      if (this.syncing) return;
+      this.syncing = true;
+      try {
+        const r = await fetch('/api/sync-to-render', { method: 'POST' });
+        const d = await r.json();
+        if (d.ok) toast(`Pushed to Render: ${d.imported} new, ${d.skipped} already there`);
+        else toast('Sync failed: ' + (d.error || 'unknown'));
+      } catch(e) { toast('Sync error: ' + e.message); }
+      this.syncing = false;
     },
 
     async syncTwilioReplies() {

@@ -1328,6 +1328,23 @@ async def save_settings(request: Request):
     return {"ok": True}
 
 
+def is_landline(account_sid: str, auth_token: str, phone: str) -> bool:
+    """Return True if the number is a landline (skip SMS). Returns False on any error."""
+    import base64, urllib.request, urllib.parse
+    try:
+        number = urllib.parse.quote(phone)
+        url = f"https://lookups.twilio.com/v2/PhoneNumbers/{number}?Fields=line_type_intelligence"
+        req = urllib.request.Request(url, headers={
+            "Authorization": "Basic " + base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
+        })
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read())
+        line_type = (data.get("line_type_intelligence") or {}).get("type", "")
+        return line_type == "landline"
+    except Exception:
+        return False
+
+
 def send_twilio_sms(account_sid, auth_token, from_number, to, body) -> str:
     """Send SMS and return the Twilio message SID."""
     import base64, json as _json, urllib.parse, urllib.request
@@ -1367,6 +1384,14 @@ async def sequence_start(request: Request):
     for lead in leads:
         lead = dict(lead)
         if not lead.get("phone") or lead.get("status") in ("opted_out", "has_website"):
+            continue
+        if is_landline(cfg["twilio_account_sid"], cfg["twilio_auth_token"], lead["phone"]):
+            conn = get_db()
+            conn.execute("UPDATE leads SET status='dead', sequence_active=0 WHERE id=?", (lead["id"],))
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)", (lead["id"], lead["phone"], "Skipped: landline detected", "landline", "outbound"))
+            conn.commit()
+            conn.close()
+            failed += 1
             continue
         city = (lead.get("location") or "your area").split(",")[0].split(" IL")[0].strip()
         msg  = get_sequence()[0].replace("{name}", lead["name"]).replace("{preview_url}", absolute_url(ensure_preview(lead))).replace("{category}", lead.get("category") or "business").replace("{city}", city)
@@ -1822,6 +1847,55 @@ async def log_manual_message(lead_id: int, request: Request):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+
+@app.post("/api/import-leads")
+async def import_leads(request: Request):
+    """Accept a batch of leads and upsert them. Used for local->Render sync."""
+    body  = await request.json()
+    leads = body.get("leads", [])
+    conn  = get_db()
+    imported = skipped = 0
+    for l in leads:
+        phone = (l.get("phone") or "").strip()
+        if not phone:
+            continue
+        existing = conn.execute("SELECT id FROM leads WHERE phone=?", (phone,)).fetchone()
+        if existing:
+            skipped += 1
+            continue
+        conn.execute("""INSERT INTO leads
+            (name, phone, address, category, location, status, created_at, sms_sent, notes)
+            VALUES (?,?,?,?,?,?,?,?,?)""",
+            (l.get("name",""), phone, l.get("address",""), l.get("category",""),
+             l.get("location",""), l.get("status","new"), l.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+             l.get("sms_sent", 0), l.get("notes","")))
+        imported += 1
+    conn.commit()
+    conn.close()
+    return {"ok": True, "imported": imported, "skipped": skipped}
+
+
+@app.post("/api/sync-to-render")
+async def sync_to_render():
+    """Push all local leads to the configured Render base_url."""
+    cfg = load_config()
+    remote = (cfg.get("base_url") or "").rstrip("/")
+    if not remote:
+        return JSONResponse({"ok": False, "error": "base_url not configured in Settings"})
+    conn  = get_db()
+    leads = [dict(r) for r in conn.execute("SELECT * FROM leads").fetchall()]
+    conn.close()
+    import base64, urllib.request, urllib.parse
+    data = json.dumps({"leads": leads}).encode()
+    req  = urllib.request.Request(f"{remote}/api/import-leads", data=data,
+                                  headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            result = json.loads(r.read())
+        return {"ok": True, "remote": remote, **result}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
 
 
 @app.get("/api/leads/{lead_id}/messages")

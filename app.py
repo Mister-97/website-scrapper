@@ -1587,6 +1587,65 @@ async def sms_reply_webhook(request: Request):
     return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
 
+@app.post("/api/sync-twilio-replies")
+async def sync_twilio_replies():
+    """Pull inbound messages from Twilio API and backfill sms_log for any that are missing."""
+    cfg = load_config()
+    account_sid = cfg.get("twilio_account_sid")
+    auth_token  = cfg.get("twilio_auth_token")
+    from_number = cfg.get("twilio_from_number")
+    if not all([account_sid, auth_token, from_number]):
+        return JSONResponse({"ok": False, "error": "Twilio not configured"})
+
+    import base64
+    from email.utils import parsedate_to_datetime
+
+    credentials = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
+    url = (
+        f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+        f"?To={urllib.parse.quote(from_number)}&PageSize=1000"
+    )
+    req = urllib.request.Request(url)
+    req.add_header("Authorization", f"Basic {credentials}")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read())
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
+
+    messages = data.get("messages", [])
+    conn  = get_db()
+    leads = {re.sub(r"\D", "", r["phone"] or ""): dict(r)
+             for r in conn.execute("SELECT * FROM leads WHERE phone IS NOT NULL").fetchall()}
+
+    imported = 0
+    for msg in messages:
+        if msg.get("direction") != "inbound":
+            continue
+        from_digits = re.sub(r"\D", "", msg.get("from", ""))
+        if from_digits not in leads:
+            continue
+        lead = leads[from_digits]
+        sid  = msg.get("sid", "")
+        if sid and conn.execute("SELECT id FROM sms_log WHERE twilio_sid=?", (sid,)).fetchone():
+            continue
+        date_raw = msg.get("date_sent") or msg.get("date_created", "")
+        try:
+            sent_at = parsedate_to_datetime(date_raw).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            sent_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        body = msg.get("body", "")
+        conn.execute(
+            "INSERT INTO sms_log (lead_id, phone, message, status, direction, twilio_sid, sent_at) VALUES (?,?,?,?,?,?,?)",
+            (lead["id"], msg.get("from", ""), body, "received", "inbound", sid, sent_at)
+        )
+        imported += 1
+
+    conn.commit()
+    conn.close()
+    return {"ok": True, "imported": imported}
+
+
 @app.post("/api/webhooks/sms/status")
 async def sms_status_webhook(request: Request):
     form = await request.form()

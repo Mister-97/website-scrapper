@@ -664,7 +664,10 @@
         <h2 class="font-bold text-lg" x-text="threadLead?.name"></h2>
         <p class="text-xs text-gray-500 font-mono" x-text="threadLead?.phone"></p>
       </div>
-      <button @click="threadModal=false" class="text-gray-500 hover:text-gray-300 text-lg leading-none">&times;</button>
+      <div class="flex items-center gap-2">
+        <button @click="syncTwilioReplies()" :disabled="syncingReplies" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium" x-text="syncingReplies ? 'Syncing...' : 'Sync replies'"></button>
+        <button @click="threadModal=false" class="text-gray-500 hover:text-gray-300 text-lg leading-none">&times;</button>
+      </div>
     </div>
     <div class="flex-1 overflow-y-auto mt-4 space-y-3 pr-1" style="min-height:200px;max-height:50vh;">
       <div x-show="threadMessages.length === 0" class="text-center text-gray-600 text-sm py-10">No messages yet.</div>
@@ -673,7 +676,7 @@
           <div :class="msg.direction === 'inbound' ? 'bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm' : 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm'" style="max-width:82%;padding:10px 14px;">
             <div class="text-sm leading-relaxed" x-text="msg.message"></div>
             <div class="flex items-center gap-1.5 mt-1">
-              <span class="text-xs opacity-60" x-text="msg.sent_at"></span>
+              <span class="text-xs opacity-60" x-text="fmtMsgTime(msg.sent_at)"></span>
               <template x-if="msg.direction !== 'inbound' && msg.delivery_status">
                 <span :class="{
                   'text-xs font-medium': true,
@@ -743,6 +746,7 @@ function app() {
     threadReply: '',
     threadSending: false,
     threadSendResult: null,
+    syncingReplies: false,
     editLead: null,
     editNotes: '',
     newDeal: { business: '', amount: '', date: new Date().toISOString().split('T')[0], notes: '' },
@@ -948,6 +952,30 @@ function app() {
         this.threadMessages = await r2.json();
         setTimeout(() => this.threadSendResult = null, 2000);
       }
+    },
+
+    fmtMsgTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts.replace(' ', 'T') + (ts.includes('T') ? '' : 'Z'));
+      if (isNaN(d)) return ts;
+      return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+    },
+
+    async syncTwilioReplies() {
+      if (this.syncingReplies) return;
+      this.syncingReplies = true;
+      try {
+        const r = await fetch('/api/sync-twilio-replies', { method: 'POST' });
+        const d = await r.json();
+        if (d.ok) {
+          toast(d.imported > 0 ? `Synced ${d.imported} inbound message${d.imported === 1 ? '' : 's'} from Twilio` : 'Already up to date');
+          const r2 = await fetch('/api/leads/' + this.threadLead.id + '/messages');
+          this.threadMessages = await r2.json();
+        } else {
+          toast('Sync failed: ' + (d.error || 'unknown error'));
+        }
+      } catch(e) { toast('Sync error: ' + e.message); }
+      this.syncingReplies = false;
     },
 
     openNotes(lead) { this.editLead = lead; this.editNotes = lead.notes || ''; this.notesModal = true; },

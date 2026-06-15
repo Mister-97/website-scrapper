@@ -1723,40 +1723,6 @@ async def get_lead_messages(lead_id: int):
     return [dict(r) for r in rows]
 
 
-@app.post("/api/import")
-async def import_data(request: Request):
-    secret = request.headers.get("X-Import-Secret", "")
-    if secret != "import-97sites-2026":
-        return JSONResponse({"ok": False}, status_code=403)
-    data = await request.json()
-    conn = get_db()
-    skipped_leads, inserted_leads = 0, 0
-    for lead in data.get("leads", []):
-        existing = conn.execute("SELECT id FROM leads WHERE phone=?", (lead.get("phone"),)).fetchone()
-        if existing:
-            skipped_leads += 1
-            continue
-        cols = [k for k in lead if k != "id"]
-        conn.execute(
-            f"INSERT INTO leads ({','.join(cols)}) VALUES ({','.join('?'*len(cols))})",
-            [lead[c] for c in cols]
-        )
-        inserted_leads += 1
-    skipped_sms, inserted_sms = 0, 0
-    for row in data.get("sms_log", []):
-        cols = [k for k in row if k != "id"]
-        try:
-            conn.execute(
-                f"INSERT INTO sms_log ({','.join(cols)}) VALUES ({','.join('?'*len(cols))})",
-                [row[c] for c in cols]
-            )
-            inserted_sms += 1
-        except Exception:
-            skipped_sms += 1
-    conn.commit()
-    conn.close()
-    return {"ok": True, "leads_inserted": inserted_leads, "leads_skipped": skipped_leads, "sms_inserted": inserted_sms}
-
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():

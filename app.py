@@ -463,7 +463,7 @@ INDUSTRY_DATA = {
         "sub": "Heating, cooling, and air quality solutions for your home or business. 24/7 emergency service available.",
         "services": [("AC Repair", "❄️"), ("Furnace Service", "🔥"), ("Installation", "⚙️"), ("Maintenance Plans", "📋"), ("Duct Cleaning", "🌬️"), ("Emergency Service", "🚨")],
         "trust": ["24/7 Emergency Service", "All Brands Serviced", "Financing Available"],
-        "photo": "photo-1585771724684-38269d6639fd",
+        "photo": "photo-1581578731548-c64695cc6952",
     },
     "dry cleaner": {
         "headline": "Drop Off Today, Pick Up Tomorrow",

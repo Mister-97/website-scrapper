@@ -1523,6 +1523,18 @@ async def sms_reply_webhook(request: Request):
     cfg = load_config()
     has_twilio = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
 
+    # Notify Josh FIRST before anything else can fail
+    notify_number = cfg.get("notify_number")
+    if notify_number and has_twilio:
+        try:
+            label = {"claim": "HOT LEAD - CALL NOW", "no_website": "No website - building preview", "has_website": "Has website/social", "other": "Replied"}.get(intent, "Replied")
+            notify_msg = f"{label}\n{matched['name']}: \"{body}\"\nCall/text: {from_}"
+            if intent == "claim":
+                notify_msg = f"HOT LEAD - CALL NOW\n{matched['name']} wants their site live.\nCall: {from_}"
+            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], notify_number, notify_msg)
+        except Exception as e:
+            print(f"[NOTIFY ERROR] {e}", flush=True)
+
     if intent == "no_website" and has_twilio:
         # Build preview and send the link
         try:
@@ -1627,34 +1639,6 @@ async def sms_reply_webhook(request: Request):
                          (matched["id"], from_, reply_msg, "sent", "outbound"))
             conn.commit()
             conn.close()
-        except Exception:
-            pass
-
-    # Notify Josh with intent context
-    notify_number = cfg.get("notify_number")
-    if notify_number and has_twilio:
-        try:
-            if intent == "claim":
-                notify_msg = (
-                    f"HOT LEAD - CALL NOW\n"
-                    f"{matched['name']} wants to claim their site.\n"
-                    f"Call: {from_}"
-                )
-            else:
-                labels = {
-                    "no_website": "NO website - preview sent",
-                    "has_website": "HAS a website already",
-                    "other": "replied",
-                }
-                notify_msg = (
-                    f"Reply from {matched['name']}: \"{body}\"\n"
-                    f"Intent: {labels.get(intent, 'replied')}\n"
-                    f"Phone: {from_}"
-                )
-            send_twilio_sms(
-                cfg["twilio_account_sid"], cfg["twilio_auth_token"],
-                cfg["twilio_from_number"], notify_number, notify_msg
-            )
         except Exception:
             pass
 

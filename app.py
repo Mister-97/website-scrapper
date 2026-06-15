@@ -20,8 +20,9 @@ from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-DB_PATH    = "leads.db"
-CONFIG_PATH = "config.json"
+DATA_DIR    = os.environ.get("DATA_DIR", ".")
+DB_PATH    = os.path.join(DATA_DIR, "leads.db")
+CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 scraper_running = False
 scraper_log: list[str] = []
 
@@ -166,18 +167,21 @@ async def sequence_loop():
             print(f"[scheduler] error: {e}")
 
 
+PREVIEWS_DIR = os.path.join(DATA_DIR, "previews")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import shutil
+    os.makedirs(DATA_DIR, exist_ok=True)
     if os.path.exists(DB_PATH):
-        backup = f"leads_backup_{datetime.now().strftime('%Y%m%d')}.db"
+        backup = os.path.join(DATA_DIR, f"leads_backup_{datetime.now().strftime('%Y%m%d')}.db")
         if not os.path.exists(backup):
             shutil.copy2(DB_PATH, backup)
             print(f"[backup] Created {backup}")
     init_db()
     os.makedirs("static", exist_ok=True)
-    os.makedirs("previews", exist_ok=True)
-    app.mount("/previews", StaticFiles(directory="previews"), name="previews")
+    os.makedirs(PREVIEWS_DIR, exist_ok=True)
+    app.mount("/previews", StaticFiles(directory=PREVIEWS_DIR), name="previews")
     task = asyncio.create_task(sequence_loop())
     print("[tip] To keep follow-ups running while your Mac is idle: caffeinate -i python app.py")
     yield
@@ -1010,7 +1014,7 @@ def write_preview(lead: dict) -> str:
     """Generate the preview HTML file for a lead, save its path, return the path."""
     slug = re.sub(r"[^a-z0-9]+", "-", lead["name"].lower()).strip("-")
     filename = f"{slug}-{lead['id']}.html"
-    with open(os.path.join("previews", filename), "w") as f:
+    with open(os.path.join(PREVIEWS_DIR, filename), "w") as f:
         f.write(generate_preview_html(lead))
     path = f"/previews/{filename}"
     conn = get_db()

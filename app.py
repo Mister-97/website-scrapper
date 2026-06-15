@@ -1328,22 +1328,6 @@ async def save_settings(request: Request):
     return {"ok": True}
 
 
-def is_landline(account_sid: str, auth_token: str, phone: str) -> bool:
-    """Return True if the number is a landline (skip SMS). Returns False on any error."""
-    import base64, urllib.request, urllib.parse
-    try:
-        number = urllib.parse.quote(phone)
-        url = f"https://lookups.twilio.com/v2/PhoneNumbers/{number}?Fields=line_type_intelligence"
-        req = urllib.request.Request(url, headers={
-            "Authorization": "Basic " + base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
-        })
-        with urllib.request.urlopen(req, timeout=5) as r:
-            data = json.loads(r.read())
-        line_type = (data.get("line_type_intelligence") or {}).get("type", "")
-        return line_type == "landline"
-    except Exception:
-        return False
-
 
 def send_twilio_sms(account_sid, auth_token, from_number, to, body) -> str:
     """Send SMS and return the Twilio message SID."""
@@ -1384,14 +1368,6 @@ async def sequence_start(request: Request):
     for lead in leads:
         lead = dict(lead)
         if not lead.get("phone") or lead.get("status") in ("opted_out", "has_website"):
-            continue
-        if is_landline(cfg["twilio_account_sid"], cfg["twilio_auth_token"], lead["phone"]):
-            conn = get_db()
-            conn.execute("UPDATE leads SET status='dead', sequence_active=0 WHERE id=?", (lead["id"],))
-            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)", (lead["id"], lead["phone"], "Skipped: landline detected", "landline", "outbound"))
-            conn.commit()
-            conn.close()
-            failed += 1
             continue
         city = (lead.get("location") or "your area").split(",")[0].split(" IL")[0].strip()
         msg  = get_sequence()[0].replace("{name}", lead["name"]).replace("{preview_url}", absolute_url(ensure_preview(lead))).replace("{category}", lead.get("category") or "business").replace("{city}", city)
@@ -1738,11 +1714,17 @@ async def _sync_twilio_replies_inner():
 @app.post("/api/webhooks/sms/status")
 async def sms_status_webhook(request: Request):
     form = await request.form()
-    sid    = form.get("MessageSid", "")
-    status = form.get("MessageStatus", "")  # queued, sent, delivered, undelivered, failed
+    sid        = form.get("MessageSid", "")
+    status     = form.get("MessageStatus", "")
+    error_code = form.get("ErrorCode", "")
     if sid and status:
         conn = get_db()
         conn.execute("UPDATE sms_log SET delivery_status=? WHERE twilio_sid=?", (status, sid))
+        # 30006 = landline, 30005 = unreachable - mark lead dead so we never retry
+        if error_code in ("30006", "30005"):
+            row = conn.execute("SELECT lead_id FROM sms_log WHERE twilio_sid=?", (sid,)).fetchone()
+            if row and row["lead_id"]:
+                conn.execute("UPDATE leads SET status='dead', sequence_active=0 WHERE id=?", (row["lead_id"],))
         conn.commit()
         conn.close()
     return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")

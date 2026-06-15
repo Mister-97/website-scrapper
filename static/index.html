@@ -664,10 +664,7 @@
         <h2 class="font-bold text-lg" x-text="threadLead?.name"></h2>
         <p class="text-xs text-gray-500 font-mono" x-text="threadLead?.phone"></p>
       </div>
-      <div class="flex items-center gap-2">
-        <button @click="syncTwilioReplies()" :disabled="syncingReplies" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium" x-text="syncingReplies ? 'Syncing...' : 'Sync replies'"></button>
-        <button @click="threadModal=false" class="text-gray-500 hover:text-gray-300 text-lg leading-none">&times;</button>
-      </div>
+      <button @click="threadModal=false" class="text-gray-500 hover:text-gray-300 text-lg leading-none">&times;</button>
     </div>
     <div class="flex-1 overflow-y-auto mt-4 space-y-3 pr-1" style="min-height:200px;max-height:50vh;">
       <div x-show="threadMessages.length === 0" class="text-center text-gray-600 text-sm py-10">No messages yet.</div>
@@ -915,6 +912,7 @@ function app() {
       this.threadReply = '';
       this.threadSendResult = null;
       this.threadModal = true;
+      await fetch('/api/sync-twilio-replies', { method: 'POST' });
       const r = await fetch('/api/leads/' + lead.id + '/messages');
       this.threadMessages = await r.json();
     },

@@ -1329,6 +1329,20 @@ async def save_settings(request: Request):
 
 
 
+def send_ntfy(title: str, message: str, priority: str = "default"):
+    """Push notification via ntfy.sh/LeadScrapper."""
+    try:
+        req = urllib.request.Request(
+            "https://ntfy.sh/LeadScrapper",
+            data=message.encode(),
+            headers={"Title": title, "Priority": priority, "Tags": "bell"},
+            method="POST"
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        print(f"[NTFY ERROR] {e}", flush=True)
+
+
 def send_twilio_sms(account_sid, auth_token, from_number, to, body) -> str:
     """Send SMS and return the Twilio message SID."""
     import base64, json as _json, urllib.parse, urllib.request
@@ -1476,15 +1490,7 @@ async def sms_reply_webhook(request: Request):
             break
 
     if not matched:
-        # Still notify Josh so he knows someone texted the number
-        cfg = load_config()
-        notify_number = cfg.get("notify_number")
-        if notify_number and all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")]):
-            try:
-                send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"],
-                                notify_number, f"Unknown number texted in: {from_}\nMessage: \"{body}\"")
-            except Exception as e:
-                print(f"[NOTIFY UNMATCHED ERROR] {e}", flush=True)
+        send_ntfy("Unknown text received", f"From: {from_}\nMessage: {body}", priority="default")
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
     # Opt-out: mark and stop everything for this lead, never message them again
@@ -1532,17 +1538,12 @@ async def sms_reply_webhook(request: Request):
     cfg = load_config()
     has_twilio = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
 
-    # Notify Josh FIRST before anything else can fail
-    notify_number = cfg.get("notify_number")
-    if notify_number and has_twilio:
-        try:
-            label = {"claim": "HOT LEAD - CALL NOW", "no_website": "No website - building preview", "has_website": "Has website/social", "other": "Replied"}.get(intent, "Replied")
-            notify_msg = f"{label}\n{matched['name']}: \"{body}\"\nCall/text: {from_}"
-            if intent == "claim":
-                notify_msg = f"HOT LEAD - CALL NOW\n{matched['name']} wants their site live.\nCall: {from_}"
-            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], notify_number, notify_msg)
-        except Exception as e:
-            print(f"[NOTIFY ERROR] {e}", flush=True)
+    # Notify Josh FIRST via push notification
+    if intent == "claim":
+        send_ntfy("HOT LEAD - CALL NOW", f"{matched['name']} wants their site live.\nCall: {from_}", priority="urgent")
+    else:
+        label = {"no_website": "No website - sending preview", "has_website": "Has website/social", "other": "Replied"}.get(intent, "Replied")
+        send_ntfy(f"Reply: {matched['name']}", f"{label}\n\"{body}\"\nCall/text: {from_}", priority="high")
 
     if intent == "no_website" and has_twilio:
         # Build preview and send the link

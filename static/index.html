@@ -937,18 +937,23 @@ function app() {
       if (!this.threadReply.trim() || this.threadSending) return;
       this.threadSending = true;
       this.threadSendResult = null;
-      const r = await fetch('/api/sms/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [this.threadLead.id], message: this.threadReply.trim() })
-      });
-      this.threadSendResult = await r.json();
-      this.threadSending = false;
-      if (this.threadSendResult.ok) {
-        this.threadReply = '';
-        const r2 = await fetch('/api/leads/' + this.threadLead.id + '/messages');
-        this.threadMessages = await r2.json();
-        setTimeout(() => this.threadSendResult = null, 2000);
+      try {
+        const r = await fetch('/api/sms/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [this.threadLead.id], message: this.threadReply.trim() })
+        });
+        this.threadSendResult = await r.json();
+        if (this.threadSendResult.ok) {
+          this.threadReply = '';
+          const r2 = await fetch('/api/leads/' + this.threadLead.id + '/messages');
+          this.threadMessages = await r2.json();
+          setTimeout(() => this.threadSendResult = null, 2000);
+        }
+      } catch(e) {
+        this.threadSendResult = { ok: false, error: e.message };
+      } finally {
+        this.threadSending = false;
       }
     },
 

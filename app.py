@@ -1476,6 +1476,15 @@ async def sms_reply_webhook(request: Request):
             break
 
     if not matched:
+        # Still notify Josh so he knows someone texted the number
+        cfg = load_config()
+        notify_number = cfg.get("notify_number")
+        if notify_number and all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")]):
+            try:
+                send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"],
+                                notify_number, f"Unknown number texted in: {from_}\nMessage: \"{body}\"")
+            except Exception as e:
+                print(f"[NOTIFY UNMATCHED ERROR] {e}", flush=True)
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
     # Opt-out: mark and stop everything for this lead, never message them again

@@ -654,7 +654,17 @@
         <div :class="msg.direction === 'inbound' ? 'flex justify-start' : 'flex justify-end'">
           <div :class="msg.direction === 'inbound' ? 'bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm' : 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm'" style="max-width:82%;padding:10px 14px;">
             <div class="text-sm leading-relaxed" x-text="msg.message"></div>
-            <div class="text-xs mt-1 opacity-60" x-text="msg.sent_at"></div>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="text-xs opacity-60" x-text="msg.sent_at"></span>
+              <template x-if="msg.direction !== 'inbound' && msg.delivery_status">
+                <span :class="{
+                  'text-xs font-medium': true,
+                  'text-green-300': msg.delivery_status === 'delivered',
+                  'text-red-300': ['failed','undelivered'].includes(msg.delivery_status),
+                  'text-white/40': ['queued','sent'].includes(msg.delivery_status)
+                }" x-text="msg.delivery_status === 'delivered' ? '✓ delivered' : msg.delivery_status === 'failed' || msg.delivery_status === 'undelivered' ? '✗ ' + msg.delivery_status : msg.delivery_status"></span>
+              </template>
+            </div>
           </div>
         </div>
       </template>

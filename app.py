@@ -139,6 +139,16 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+    try:
+        conn.execute("ALTER TABLE sms_log ADD COLUMN twilio_sid TEXT")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE sms_log ADD COLUMN delivery_status TEXT DEFAULT 'sent'")
+        conn.commit()
+    except Exception:
+        pass
     conn.close()
 
 
@@ -1320,15 +1330,22 @@ async def save_settings(request: Request):
     return {"ok": True}
 
 
-def send_twilio_sms(account_sid, auth_token, from_number, to, body):
-    import base64, urllib.parse, urllib.request
-    data = urllib.parse.urlencode({"To": to, "From": from_number, "Body": body}).encode()
+def send_twilio_sms(account_sid, auth_token, from_number, to, body) -> str:
+    """Send SMS and return the Twilio message SID."""
+    import base64, json as _json, urllib.parse, urllib.request
+    cfg = load_config()
+    base = (cfg.get("base_url") or "").rstrip("/")
+    params = {"To": to, "From": from_number, "Body": body}
+    if base:
+        params["StatusCallback"] = f"{base}/api/webhooks/sms/status"
+    data = urllib.parse.urlencode(params).encode()
     req  = urllib.request.Request(
         f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
         data=data,
         headers={"Authorization": "Basic " + base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()}
     )
-    urllib.request.urlopen(req, timeout=10)
+    resp = urllib.request.urlopen(req, timeout=10)
+    return _json.loads(resp.read()).get("sid", "")
 
 
 @app.post("/api/sequence/start")
@@ -1357,11 +1374,11 @@ async def sequence_start(request: Request):
         msg  = get_sequence()[0].replace("{name}", lead["name"]).replace("{preview_url}", absolute_url(ensure_preview(lead))).replace("{category}", lead.get("category") or "business").replace("{city}", city)
         try:
             await asyncio.sleep(1.1)
-            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
+            sid = send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
             follow_up_at = (now + timedelta(days=SEQUENCE_DELAYS[1])).strftime("%Y-%m-%d %H:%M:%S")
             conn = get_db()
             conn.execute("UPDATE leads SET sequence_active=1, sequence_step=1, follow_up_at=?, status=CASE WHEN status='new' THEN 'contacted' ELSE status END, sms_sent=sms_sent+1, first_contacted_at=COALESCE(first_contacted_at, ?) WHERE id=?", (follow_up_at, now.strftime("%Y-%m-%d %H:%M:%S"), lead["id"]))
-            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status) VALUES (?,?,?,?)", (lead["id"], lead["phone"], msg, "sent"))
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, twilio_sid, delivery_status) VALUES (?,?,?,?,?,?)", (lead["id"], lead["phone"], msg, "sent", sid, "queued"))
             conn.commit()
             conn.close()
             sent += 1
@@ -1400,7 +1417,7 @@ async def process_due_sequences() -> int:
 
         try:
             await asyncio.sleep(1.1)
-            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
+            sid = send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
             next_step = step + 1
             if next_step < len(seq):
                 follow_up_at = (datetime.now() + timedelta(days=SEQUENCE_DELAYS[next_step] - SEQUENCE_DELAYS[step])).strftime("%Y-%m-%d %H:%M:%S")
@@ -1410,7 +1427,7 @@ async def process_due_sequences() -> int:
                 active = 0
             conn = get_db()
             conn.execute("UPDATE leads SET sequence_step=?, sequence_active=?, follow_up_at=?, sms_sent=sms_sent+1 WHERE id=?", (next_step, active, follow_up_at, lead["id"]))
-            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status) VALUES (?,?,?,?)", (lead["id"], lead["phone"], msg, "sent"))
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, twilio_sid, delivery_status) VALUES (?,?,?,?,?,?)", (lead["id"], lead["phone"], msg, "sent", sid, "queued"))
             conn.commit()
             conn.close()
             sent += 1
@@ -1581,6 +1598,19 @@ async def sms_reply_webhook(request: Request):
     return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
 
+@app.post("/api/webhooks/sms/status")
+async def sms_status_webhook(request: Request):
+    form = await request.form()
+    sid    = form.get("MessageSid", "")
+    status = form.get("MessageStatus", "")  # queued, sent, delivered, undelivered, failed
+    if sid and status:
+        conn = get_db()
+        conn.execute("UPDATE sms_log SET delivery_status=? WHERE twilio_sid=?", (status, sid))
+        conn.commit()
+        conn.close()
+    return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
+
+
 @app.post("/api/sequence/stop")
 async def sequence_stop(request: Request):
     body = await request.json()
@@ -1686,7 +1716,7 @@ async def log_manual_message(lead_id: int, request: Request):
 async def get_lead_messages(lead_id: int):
     conn = get_db()
     rows = conn.execute(
-        "SELECT direction, message, status, sent_at FROM sms_log WHERE lead_id=? ORDER BY sent_at ASC",
+        "SELECT direction, message, status, sent_at, delivery_status FROM sms_log WHERE lead_id=? ORDER BY sent_at ASC",
         (lead_id,)
     ).fetchall()
     conn.close()

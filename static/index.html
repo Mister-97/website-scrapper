@@ -27,11 +27,16 @@
   .input:focus { border-color: #6366f1; background: white; }
   .input::placeholder { color: #9ca3af; }
   .status-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .s-new       { background: #dbeafe; color: #1d4ed8; }
-  .s-contacted { background: #fef3c7; color: #b45309; }
-  .s-replied   { background: #ede9fe; color: #7c3aed; }
-  .s-closed    { background: #dcfce7; color: #15803d; }
-  .s-dead      { background: #f3f4f6; color: #9ca3af; }
+  .s-new          { background: #dbeafe; color: #1d4ed8; }
+  .s-contacted    { background: #fef3c7; color: #b45309; }
+  .s-replied      { background: #ede9fe; color: #7c3aed; }
+  .s-building     { background: #fef9c3; color: #854d0e; }
+  .s-preview_sent { background: #ffedd5; color: #c2410c; }
+  .s-claimed      { background: #fce7f3; color: #be185d; font-weight: 800; }
+  .s-has_website  { background: #f3f4f6; color: #9ca3af; }
+  .s-opted_out    { background: #f3f4f6; color: #9ca3af; }
+  .s-closed       { background: #dcfce7; color: #15803d; }
+  .s-dead         { background: #f3f4f6; color: #9ca3af; }
   .tag { background: #ede9fe; color: #6366f1; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 50; }
   .modal { background: white; border: 1px solid #e5e7eb; border-radius: 20px; padding: 28px; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
@@ -284,6 +289,11 @@
                 <option value="new">new</option>
                 <option value="contacted">contacted</option>
                 <option value="replied">replied</option>
+                <option value="building">building</option>
+                <option value="preview_sent">preview sent</option>
+                <option value="claimed">claimed</option>
+                <option value="has_website">has website</option>
+                <option value="opted_out">opted out</option>
                 <option value="closed">closed</option>
                 <option value="dead">dead</option>
               </select>

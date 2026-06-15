@@ -1513,10 +1513,7 @@ async def sms_reply_webhook(request: Request):
 
     elif intent == "claim" and has_twilio:
         try:
-            reply_msg = (
-                f"Awesome, we'll get your site live right away! "
-                f"What's the best email to send your login and site details to?"
-            )
+            reply_msg = "Awesome! Someone from our team will be reaching out shortly to get everything set up for you."
             send_twilio_sms(
                 cfg["twilio_account_sid"], cfg["twilio_auth_token"],
                 cfg["twilio_from_number"], from_, reply_msg
@@ -1533,17 +1530,23 @@ async def sms_reply_webhook(request: Request):
     notify_number = cfg.get("notify_number")
     if notify_number and has_twilio:
         try:
-            labels = {
-                "claim": "WANTS TO CLAIM the site",
-                "no_website": "NO website",
-                "has_website": "HAS a website already",
-                "other": "replied",
-            }
-            notify_msg = (
-                f"Reply from {matched['name']}: \"{body}\"\n"
-                f"Intent: {labels.get(intent, 'replied')}\n"
-                f"Phone: {from_}"
-            )
+            if intent == "claim":
+                notify_msg = (
+                    f"HOT LEAD - CALL NOW\n"
+                    f"{matched['name']} wants to claim their site.\n"
+                    f"Call: {from_}"
+                )
+            else:
+                labels = {
+                    "no_website": "NO website - preview sent",
+                    "has_website": "HAS a website already",
+                    "other": "replied",
+                }
+                notify_msg = (
+                    f"Reply from {matched['name']}: \"{body}\"\n"
+                    f"Intent: {labels.get(intent, 'replied')}\n"
+                    f"Phone: {from_}"
+                )
             send_twilio_sms(
                 cfg["twilio_account_sid"], cfg["twilio_auth_token"],
                 cfg["twilio_from_number"], notify_number, notify_msg

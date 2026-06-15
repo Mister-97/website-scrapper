@@ -1640,11 +1640,13 @@ async def _sync_twilio_replies_inner():
         return JSONResponse({"ok": False, "error": str(e)})
 
     messages = data.get("messages", [])
+    inbound_msgs = [m for m in messages if m.get("direction") == "inbound"]
     conn  = get_db()
     leads = {re.sub(r"\D", "", r["phone"] or ""): dict(r)
              for r in conn.execute("SELECT * FROM leads WHERE phone IS NOT NULL").fetchall()}
 
     imported = 0
+    debug_inbound = [{"from": m.get("from"), "body": m.get("body","")[:40], "dir": m.get("direction")} for m in inbound_msgs[:10]]
     for msg in messages:
         if msg.get("direction") != "inbound":
             continue
@@ -1676,7 +1678,7 @@ async def _sync_twilio_replies_inner():
 
     conn.commit()
     conn.close()
-    return {"ok": True, "imported": imported}
+    return {"ok": True, "imported": imported, "total_twilio": len(messages), "inbound_count": len(inbound_msgs), "inbound_sample": debug_inbound}
 
 
 @app.post("/api/webhooks/sms/status")

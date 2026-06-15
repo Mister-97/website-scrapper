@@ -57,7 +57,7 @@
     <span class="font-bold text-sm tracking-tight text-gray-900">LeadGen</span>
   </div>
   <nav class="flex flex-col gap-1 flex-1">
-    <div @click="tab='dashboard'" :class="tab==='dashboard' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+    <div @click="tab='dashboard'; loadStats().then(() => renderCharts())" :class="tab==='dashboard' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
       Overview
     </div>
@@ -128,9 +128,9 @@
     <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">Pipeline</div>
     <div class="flex gap-3 flex-wrap">
       <template x-for="[s, count] in Object.entries(stats.by_status || {})">
-        <div class="flex items-center gap-2.5 bg-gray-900/50 rounded-xl px-4 py-2.5 border border-gray-800">
+        <div class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-gray-200 shadow-sm">
           <span :class="'status-badge s-' + s" x-text="s"></span>
-          <span class="font-bold text-lg" x-text="count"></span>
+          <span class="font-bold text-lg text-gray-900" x-text="count"></span>
         </div>
       </template>
       <div x-show="Object.keys(stats.by_status || {}).length === 0" class="text-gray-700 text-sm">No leads yet</div>

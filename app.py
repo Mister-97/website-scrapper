@@ -1661,6 +1661,29 @@ async def sms_reply_webhook(request: Request):
     return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
 
+@app.get("/api/debug/twilio-webhook")
+async def debug_twilio_webhook():
+    """Check what webhook URL Twilio has configured for our number."""
+    cfg = load_config()
+    account_sid = cfg.get("twilio_account_sid")
+    auth_token  = cfg.get("twilio_auth_token")
+    if not account_sid or not auth_token:
+        return {"error": "not configured"}
+    import base64
+    creds = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
+    req = urllib.request.Request(
+        f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/IncomingPhoneNumbers.json",
+        headers={"Authorization": f"Basic {creds}"}
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            data = json.loads(r.read())
+        numbers = data.get("incoming_phone_numbers", [])
+        return [{"number": n.get("phone_number"), "sms_url": n.get("sms_url"), "sms_method": n.get("sms_method")} for n in numbers]
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.post("/api/test-notify")
 async def test_notify():
     cfg = load_config()

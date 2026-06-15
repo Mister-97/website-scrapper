@@ -1676,9 +1676,31 @@ async def _sync_twilio_replies_inner():
             leads[from_digits]["status"] = new_status
         imported += 1
 
+    # Also fix statuses for leads that already have inbound messages in sms_log
+    # but are still stuck in "contacted" or "new"
+    updated = 0
+    stuck_leads = conn.execute(
+        "SELECT DISTINCT lead_id FROM sms_log WHERE direction='inbound'"
+    ).fetchall()
+    for row in stuck_leads:
+        lid = row[0]
+        lead_row = conn.execute("SELECT status FROM leads WHERE id=?", (lid,)).fetchone()
+        if not lead_row or lead_row["status"] not in ("contacted", "new"):
+            continue
+        last_inbound = conn.execute(
+            "SELECT message FROM sms_log WHERE lead_id=? AND direction='inbound' ORDER BY sent_at DESC LIMIT 1",
+            (lid,)
+        ).fetchone()
+        if not last_inbound:
+            continue
+        intent = classify_reply(last_inbound["message"], current_status=lead_row["status"])
+        new_status = {"claim": "claimed", "has_website": "has_website", "no_website": "building"}.get(intent, "replied")
+        conn.execute("UPDATE leads SET status=?, sequence_active=0 WHERE id=?", (new_status, lid))
+        updated += 1
+
     conn.commit()
     conn.close()
-    return {"ok": True, "imported": imported, "total_twilio": len(messages), "inbound_count": len(inbound_msgs), "inbound_sample": debug_inbound}
+    return {"ok": True, "imported": imported, "updated": updated, "total_twilio": len(messages), "inbound_count": len(inbound_msgs)}
 
 
 @app.post("/api/webhooks/sms/status")

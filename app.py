@@ -11,6 +11,8 @@ import json
 import os
 import re
 import sqlite3
+import urllib.parse
+import urllib.request
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Optional

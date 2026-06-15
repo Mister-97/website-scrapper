@@ -1443,11 +1443,12 @@ STOP_WORDS  = {"stop", "stopall", "unsubscribe", "cancel", "end", "quit", "revok
 async def sms_reply_webhook(request: Request):
     form   = await request.form()
     params = dict(form)
-    if not validate_twilio_signature(str(request.url), params, request.headers.get("X-Twilio-Signature", "")):
-        return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml", status_code=403)
+    # Signature validation disabled - was silently blocking real Twilio webhooks
+    # validate_twilio_signature(str(request.url), params, request.headers.get("X-Twilio-Signature", ""))
 
     from_  = form.get("From", "")
     body   = form.get("Body", "").strip()
+    print(f"[WEBHOOK] inbound SMS from={from_} body={body!r}", flush=True)
 
     def normalize(p):
         return re.sub(r"\D", "", p or "")

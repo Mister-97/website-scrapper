@@ -278,13 +278,13 @@
                 </div>
                 <div>
                   <div class="text-sm font-semibold text-gray-900 leading-tight" x-text="lead.name"></div>
-                  <div class="text-xs text-gray-600 leading-tight mt-0.5 truncate max-w-48" x-text="lead.address"></div>
+                  <div class="text-xs text-gray-500 leading-tight mt-0.5 truncate max-w-48" x-text="lead.address"></div>
                 </div>
               </div>
             </td>
-            <td class="px-4 py-3 font-mono text-sm text-gray-400" x-text="lead.phone"></td>
+            <td class="px-4 py-3 font-mono text-sm text-gray-800 whitespace-nowrap" x-text="lead.phone"></td>
             <td class="px-4 py-3"><span class="tag capitalize" x-text="lead.category"></span></td>
-            <td class="px-4 py-3 text-sm text-gray-500" x-text="lead.location"></td>
+            <td class="px-4 py-3 text-sm text-gray-800 whitespace-nowrap" x-text="lead.location"></td>
             <td class="px-4 py-3">
               <select :value="lead.status" @change="updateStatus(lead, $event.target.value)" :class="'status-badge s-' + lead.status + ' select border-0 capitalize'" style="background:transparent;">
                 <option value="new">new</option>

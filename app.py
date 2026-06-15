@@ -283,9 +283,14 @@ async def run_scraper(categories: list[str], locations: list[str]):
                         await page.wait_for_timeout(2500)
 
                         panel = page.locator('div[role="feed"]')
-                        for _ in range(5):
+                        prev_count = 0
+                        for _ in range(20):
                             await panel.evaluate("el => el.scrollBy(0, 800)")
-                            await page.wait_for_timeout(600)
+                            await page.wait_for_timeout(800)
+                            cur_count = await page.locator('a[href*="/maps/place/"]').count()
+                            if cur_count == prev_count:
+                                break
+                            prev_count = cur_count
 
                         listings = await page.locator('a[href*="/maps/place/"]').all()
                         hrefs, seen_hrefs = [], set()
@@ -295,7 +300,7 @@ async def run_scraper(categories: list[str], locations: list[str]):
                                 seen_hrefs.add(href)
                                 hrefs.append(href)
 
-                        for href in hrefs[:25]:
+                        for href in hrefs[:60]:
                             try:
                                 await page.goto(href, wait_until="domcontentloaded", timeout=20000)
                                 await page.wait_for_timeout(1200)

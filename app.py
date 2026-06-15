@@ -35,6 +35,7 @@ _ENV_KEYS = {
     "twilio_account_sid": "TWILIO_ACCOUNT_SID",
     "twilio_auth_token":  "TWILIO_AUTH_TOKEN",
     "twilio_from_number": "TWILIO_FROM_NUMBER",
+    "base_url":           "BASE_URL",
 }
 
 def load_config():
@@ -140,9 +141,18 @@ def get_sequence() -> list:
     return _DEFAULT_SEQUENCE
 
 
-def classify_reply(text: str) -> str:
-    """Return 'no_website', 'has_website', or 'other'."""
+def classify_reply(text: str, current_status: str = "") -> str:
+    """Return 'claim', 'no_website', 'has_website', or 'other'."""
     t = text.lower().strip()
+    # Explicit claim intent: CTA button text or high-intent phrasing
+    claim_patterns = [
+        r"\bclaim\b", r"want to claim", r"i want it", r"get it live",
+        r"\bsign me up\b", r"\blet'?s do it\b", r"\blet'?s go\b",
+        r"i'?m interested", r"\byes please\b", r"\bdo it\b",
+    ]
+    for p in claim_patterns:
+        if re.search(p, t):
+            return "claim"
     # A URL anywhere in the reply means they have a site, even if the
     # message also contains a "no" ("no worries, we have one at joes.com")
     url_patterns = [r"https?://", r"www\.", r"\.com\b", r"\.net\b", r"\.org\b"]
@@ -167,6 +177,9 @@ def classify_reply(text: str) -> str:
             return "no_website"
     for p in yes_patterns:
         if re.search(p, t):
+            # If we already sent a preview, "yes" means they want it - not that they have a site
+            if current_status in ("preview_sent", "building"):
+                return "claim"
             return "has_website"
     return "other"
 
@@ -1431,10 +1444,12 @@ async def sms_reply_webhook(request: Request):
                 pass
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
-    intent = classify_reply(body)
+    intent = classify_reply(body, current_status=matched.get("status", ""))
 
     # Determine new status
-    if intent == "has_website":
+    if intent == "claim":
+        new_status = "claimed"
+    elif intent == "has_website":
         new_status = "has_website"
     elif intent == "no_website":
         new_status = "building"
@@ -1480,11 +1495,34 @@ async def sms_reply_webhook(request: Request):
         except Exception:
             pass
 
+    elif intent == "claim" and has_twilio:
+        try:
+            reply_msg = (
+                f"Awesome, we'll get your site live right away! "
+                f"What's the best email to send your login and site details to?"
+            )
+            send_twilio_sms(
+                cfg["twilio_account_sid"], cfg["twilio_auth_token"],
+                cfg["twilio_from_number"], from_, reply_msg
+            )
+            conn = get_db()
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                         (matched["id"], from_, reply_msg, "sent", "outbound"))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
     # Notify Josh with intent context
     notify_number = cfg.get("notify_number")
     if notify_number and has_twilio:
         try:
-            labels = {"no_website": "NO website", "has_website": "HAS a website already", "other": "replied"}
+            labels = {
+                "claim": "WANTS TO CLAIM the site",
+                "no_website": "NO website",
+                "has_website": "HAS a website already",
+                "other": "replied",
+            }
             notify_msg = (
                 f"Reply from {matched['name']}: \"{body}\"\n"
                 f"Intent: {labels.get(intent, 'replied')}\n"

@@ -732,10 +732,8 @@
           <div class="text-xs text-gray-500">Wyatt and Andrew start sequences for new leads automatically</div>
         </div>
         <div @click="settings.auto_sequence = !settings.auto_sequence; saveSettings()"
-          :style="settings.auto_sequence ? 'background:#4f46e5;' : 'background:#d1d5db;'"
-          style="width:44px;height:24px;border-radius:12px;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;">
-          <div :style="settings.auto_sequence ? 'transform:translateX(20px);' : 'transform:translateX(2px);'"
-            style="position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.25);transition:transform .2s;"></div>
+          :style="{background: settings.auto_sequence ? '#4f46e5' : '#d1d5db', width:'44px', height:'24px', borderRadius:'12px', cursor:'pointer', transition:'background .2s', position:'relative', flexShrink:'0'}">
+          <div :style="{transform: settings.auto_sequence ? 'translateX(20px)' : 'translateX(2px)', position:'absolute', top:'2px', width:'20px', height:'20px', borderRadius:'50%', background:'white', boxShadow:'0 1px 3px rgba(0,0,0,0.25)', transition:'transform .2s'}"></div>
         </div>
       </div>
       <div x-show="settings.auto_sequence">

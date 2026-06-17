@@ -731,12 +731,12 @@
           <div class="text-sm font-semibold text-gray-800">Auto-message new leads</div>
           <div class="text-xs text-gray-500">Wyatt and Andrew start sequences for new leads automatically</div>
         </div>
-        <button @click="settings.auto_sequence = !settings.auto_sequence; saveSettings()"
-          :class="settings.auto_sequence ? 'bg-indigo-600' : 'bg-gray-200'"
-          style="width:44px;height:24px;border-radius:12px;border:none;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;">
-          <span :style="settings.auto_sequence ? 'left:22px;' : 'left:2px;'"
-            style="position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:left .2s;display:block;"></span>
-        </button>
+        <div @click="settings.auto_sequence = !settings.auto_sequence; saveSettings()"
+          :style="settings.auto_sequence ? 'background:#4f46e5;' : 'background:#d1d5db;'"
+          style="width:44px;height:24px;border-radius:12px;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;">
+          <div :style="settings.auto_sequence ? 'transform:translateX(20px);' : 'transform:translateX(2px);'"
+            style="position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.25);transition:transform .2s;"></div>
+        </div>
       </div>
       <div x-show="settings.auto_sequence">
         <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Daily limit (total texts per day)</label>

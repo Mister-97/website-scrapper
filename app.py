@@ -2117,8 +2117,22 @@ async def sms_reply_webhook(request: Request):
     conn.execute("UPDATE leads SET status=?, sequence_active=0 WHERE id=?", (new_status, matched["id"]))
     conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction, twilio_sid) VALUES (?,?,?,?,?,?)",
                  (matched["id"], from_, body, "received", "inbound", msg_sid))
+
+    # Cooldown: if we sent an outbound message in the last 90 seconds, skip auto-reply
+    last_out = conn.execute(
+        "SELECT sent_at FROM sms_log WHERE lead_id=? AND direction='outbound' ORDER BY sent_at DESC LIMIT 1",
+        (matched["id"],)
+    ).fetchone()
     conn.commit()
     conn.close()
+
+    if last_out:
+        try:
+            last_out_dt = datetime.strptime(last_out[0], "%Y-%m-%d %H:%M:%S")
+            if (datetime.now() - last_out_dt).total_seconds() < 90:
+                return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
+        except Exception:
+            pass
 
     # Only notify for hot signals - Wyatt/Andrew handle everything else silently
     t_lower = body.lower()
@@ -2146,9 +2160,7 @@ async def sms_reply_webhook(request: Request):
             conn.close()
 
             reply_msg = (
-                f"Perfect, I actually already built one for you. "
-                f"Here is your free preview site: {preview_link}\n\n"
-                f"Reply CLAIM if you want to keep it and I will get it live today."
+                f"I actually already built one for you. Take a look:\n{preview_link}\nIf you like it, tell me what you are willing to pay. Any number works."
             )
             await asyncio.sleep(random.uniform(7, 12))
             send_twilio_sms(
@@ -2191,16 +2203,9 @@ async def sms_reply_webhook(request: Request):
         # Fallback if Claude fails or no key
         if not reply_msg:
             if intent == "has_website":
-                reply_msg = (
-                    f"Got it, good to know. One thing a lot of businesses are missing in 2026 is AI search visibility. "
-                    f"When someone asks ChatGPT or Google AI for a {matched.get('category','business')} in your area your site needs to be optimized for that. "
-                    f"I already built a free preview. Want me to send it over?"
-                )
+                reply_msg = f"Send me the link, I want to take a look."
             else:
-                reply_msg = (
-                    f"Appreciate the reply. I already built a free website preview for {matched['name']}. "
-                    f"Want me to send it over? Takes 2 seconds to look at."
-                )
+                reply_msg = f"Got it. If you like the site, just tell me what you would pay for it. Any number works."
 
         try:
             await asyncio.sleep(random.uniform(7, 12))

@@ -155,9 +155,9 @@ def init_db():
 
 _DEFAULT_SEQUENCE = [
     "Hey I was searching for {name} but couldn't find a website, do you guys have one?",
-    "Yeah I actually built you a free preview to show you what it could look like. Want to see it? {preview_url}",
-    "No worries if not, just didn't want you losing customers to competitors who have sites.",
-    "Last one I promise. I'm about to give this slot to another {category} in {city}, wanted to check if you wanted it first.",
+    "I went ahead and built {name} a free website already. No strings attached, want to take a look? {preview_url}",
+    "Just checking in on the site I built for you. It's ready to go live today if you want it, zero upfront cost.",
+    "Last message I promise. I built this site specifically for {name} and I have a {category} in {city} asking about it too. First one to respond gets it.",
 ]
 
 SEQUENCE_DELAYS = [0, 1, 3, 5]  # days after sequence start

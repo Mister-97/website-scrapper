@@ -123,21 +123,16 @@
     <div style="padding:14px 14px 10px;border-bottom:1px solid #e5e7eb;">
       <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:10px;">Messages</div>
       <input x-model="msgSearch" placeholder="Search..." style="width:100%;background:#f3f4f6;border:none;border-radius:10px;padding:8px 12px;font-size:13px;color:#111;outline:none;margin-bottom:10px;">
-      <!-- Filter chips -->
-      <div style="display:flex;gap:5px;flex-wrap:wrap;">
-        <template x-for="f in [{label:'All',val:'all'},{label:'Replied',val:'replied'},{label:'Hot',val:'hot'},{label:'Wyatt',val:'wyatt'},{label:'Andrew',val:'andrew'}]" :key="f.val">
-          <button @click="msgFilter=f.val"
-            :style="msgFilter===f.val
-              ? 'background:#6366f1;color:white;border:1.5px solid #6366f1;box-shadow:0 2px 8px rgba(99,102,241,0.25);'
-              : 'background:white;color:#6b7280;border:1.5px solid #e5e7eb;'"
-            style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .12s;">
-            <span x-text="f.label"></span>
-            <span x-show="msgFilterCounts[f.val] > 0"
-              :style="msgFilter===f.val ? 'background:rgba(255,255,255,0.25);color:white;' : 'background:#f3f4f6;color:#374151;'"
-              style="font-size:10px;font-weight:800;padding:1px 5px;border-radius:100px;"
-              x-text="msgFilterCounts[f.val]"></span>
-          </button>
-        </template>
+      <!-- Filter dropdown -->
+      <div style="position:relative;">
+        <select x-model="msgFilter" style="width:100%;appearance:none;-webkit-appearance:none;background:white;border:1.5px solid #e5e7eb;border-radius:10px;padding:8px 36px 8px 12px;font-size:13px;font-weight:600;color:#111;outline:none;cursor:pointer;transition:border-color .15s;" @change="">
+          <option value="all" x-text="`All  (${msgFilterCounts.all})`"></option>
+          <option value="replied" x-text="`Replied  (${msgFilterCounts.replied})`"></option>
+          <option value="hot" x-text="`Hot  (${msgFilterCounts.hot})`"></option>
+          <option value="wyatt" x-text="`Wyatt  (${msgFilterCounts.wyatt})`"></option>
+          <option value="andrew" x-text="`Andrew  (${msgFilterCounts.andrew})`"></option>
+        </select>
+        <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#6366f1;pointer-events:none;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
       </div>
     </div>
     <div style="flex:1;overflow-y:auto;">
@@ -557,7 +552,6 @@
                 <div>
                   <div class="flex items-center gap-2">
                     <span class="text-sm font-semibold text-gray-900 leading-tight" x-text="lead.name"></span>
-                    <span x-show="['replied','claimed','building','preview_sent'].includes(lead.status)" class="inline-block w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Replied"></span>
                   </div>
                   <div class="text-xs text-gray-500 leading-tight mt-0.5 truncate max-w-48" x-text="lead.address"></div>
                 </div>
@@ -632,8 +626,8 @@
     <p class="text-gray-600 text-sm">Send personalized texts to your leads via Twilio.</p>
   </div>
 
-  <div class="bg-indigo-900/40 border border-indigo-500/40 rounded-xl px-4 py-2.5 mb-5 flex items-center gap-2 text-xs text-indigo-300">
-    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  <div class="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 mb-5 flex items-center gap-2 text-xs text-gray-600">
+    <svg class="w-3.5 h-3.5 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
     Follow-ups send automatically every 60 seconds on Render. Wyatt and Andrew handle new leads at 8am CST daily.
   </div>
 
@@ -827,6 +821,26 @@
       <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Public Base URL</label>
       <input x-model="settings.base_url" placeholder="https://your-app.up.railway.app" class="input">
       <p class="text-xs text-gray-600 mt-1">Where this app is reachable from the internet. Used to build preview links in texts and to verify Twilio webhooks. Set your Twilio number's SMS webhook to this URL + /api/webhooks/sms/reply</p>
+    </div>
+    <div class="border-t border-gray-100 pt-4 mt-2">
+      <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 block">Autonomous Outreach</label>
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="text-sm font-semibold text-gray-800">Auto-message new leads</div>
+          <div class="text-xs text-gray-500">Wyatt and Andrew start sequences for new leads automatically</div>
+        </div>
+        <button @click="settings.auto_sequence = !settings.auto_sequence"
+          :class="settings.auto_sequence ? 'bg-indigo-600' : 'bg-gray-200'"
+          style="width:44px;height:24px;border-radius:12px;border:none;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;">
+          <span :style="settings.auto_sequence ? 'left:22px;' : 'left:2px;'"
+            style="position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:left .2s;display:block;"></span>
+        </button>
+      </div>
+      <div x-show="settings.auto_sequence">
+        <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Daily limit (total texts per day)</label>
+        <input x-model="settings.daily_limit" type="number" placeholder="200" class="input" style="width:120px;">
+        <p class="text-xs text-gray-500 mt-1">200 = ~100 per agent. Twilio charges $0.008/msg.</p>
+      </div>
     </div>
     <button @click="saveSettings()" class="btn-primary px-6 py-2.5">Save Settings</button>
     <div x-show="settingsSaved" class="text-green-400 text-sm">Saved.</div>
@@ -1075,7 +1089,7 @@ function app() {
     smsTarget: 'new',
     smsSending: false,
     smsResult: null,
-    settings: { twilio_account_sid: '', twilio_auth_token: '', twilio_from_number: '', notify_number: '', base_url: '' },
+    settings: { twilio_account_sid: '', twilio_auth_token: '', twilio_from_number: '', notify_number: '', base_url: '', auto_sequence: false, daily_limit: 200 },
     settingsSaved: false,
     seqMessages: ['','','',''],
     seqSaved: false,
@@ -1083,7 +1097,24 @@ function app() {
     locChart: null,
 
     allCategories: ['restaurant','nail salon','barber shop','hair salon','auto repair','car detailing','plumber','electrician','landscaping','daycare','tattoo shop','dry cleaner','locksmith','pest control','painting contractor','flooring','roofing','hvac','cleaning service'],
-    allLocations: ['Naperville IL','Schaumburg IL','Elmhurst IL','Orland Park IL','Bolingbrook IL','Aurora IL','Joliet IL','Oak Park IL','Downers Grove IL'],
+    allLocations: [
+      'Fort Worth TX','Dallas TX','Arlington TX','Plano TX','Irving TX','Garland TX','Frisco TX','McKinney TX','Denton TX','Mesquite TX',
+      'Houston TX','San Antonio TX','Austin TX','El Paso TX','Corpus Christi TX','Lubbock TX','Amarillo TX',
+      'Chicago IL','Naperville IL','Schaumburg IL','Bolingbrook IL','Aurora IL','Joliet IL',
+      'Phoenix AZ','Tucson AZ','Mesa AZ','Chandler AZ','Scottsdale AZ',
+      'Las Vegas NV','Henderson NV','Reno NV',
+      'Jacksonville FL','Tampa FL','Orlando FL','Miami FL','Fort Lauderdale FL','St Petersburg FL',
+      'Charlotte NC','Raleigh NC','Greensboro NC','Durham NC',
+      'Memphis TN','Nashville TN','Knoxville TN','Chattanooga TN',
+      'Atlanta GA','Augusta GA','Columbus GA','Savannah GA',
+      'Columbus OH','Cleveland OH','Cincinnati OH','Toledo OH','Akron OH',
+      'Indianapolis IN','Fort Wayne IN','Evansville IN',
+      'Detroit MI','Grand Rapids MI','Warren MI','Sterling Heights MI',
+      'Louisville KY','Lexington KY',
+      'Kansas City MO','St Louis MO','Springfield MO',
+      'Omaha NE','Lincoln NE',
+      'Tulsa OK','Oklahoma City OK',
+    ],
     selectedCats: [],
     selectedLocs: [],
 

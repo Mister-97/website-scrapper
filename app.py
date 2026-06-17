@@ -275,6 +275,52 @@ async def sequence_loop():
         except Exception as e:
             print(f"[scheduler] error: {e}")
         try:
+            # Auto-sequence: if enabled, start outreach for new leads up to daily limit
+            cfg = load_config()
+            if cfg.get("auto_sequence"):
+                daily_limit = int(cfg.get("daily_limit") or 200)
+                today_start = datetime.now().strftime("%Y-%m-%d") + " 00:00:00"
+                conn = get_db()
+                sent_today = conn.execute(
+                    "SELECT COUNT(*) FROM sms_log WHERE sent_at >= ? AND direction='outbound'",
+                    (today_start,)
+                ).fetchone()[0]
+                remaining = daily_limit - sent_today
+                if remaining > 0:
+                    new_leads = conn.execute(
+                        "SELECT * FROM leads WHERE status='new' AND sequence_active=0 AND phone IS NOT NULL "
+                        "AND phone != '' LIMIT ?", (remaining,)
+                    ).fetchall()
+                    conn.close()
+                    if new_leads:
+                        ids = [l["id"] for l in new_leads]
+                        print(f"[auto-sequence] Starting {len(ids)} new leads ({sent_today}/{daily_limit} sent today)", flush=True)
+                        now = datetime.now()
+                        twilio_ok = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
+                        if twilio_ok:
+                            seq = get_sequence()
+                            for lead in new_leads:
+                                lead = dict(lead)
+                                try:
+                                    await asyncio.sleep(1.2)
+                                    city = (lead.get("location") or "your area").split(",")[0].split(" IL")[0].split(" TX")[0].strip()
+                                    msg = seq[0].replace("{name}", lead["name"]).replace("{preview_url}", absolute_url(ensure_preview(lead))).replace("{category}", lead.get("category") or "business").replace("{city}", city)
+                                    sid = send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
+                                    follow_up_at = (now + timedelta(days=SEQUENCE_DELAYS[1])).strftime("%Y-%m-%d %H:%M:%S")
+                                    conn2 = get_db()
+                                    conn2.execute("UPDATE leads SET sequence_active=1, sequence_step=1, follow_up_at=?, status='contacted', sms_sent=sms_sent+1, first_contacted_at=COALESCE(first_contacted_at, ?) WHERE id=?",
+                                                  (follow_up_at, now.strftime("%Y-%m-%d %H:%M:%S"), lead["id"]))
+                                    conn2.execute("INSERT INTO sms_log (lead_id, phone, message, status, twilio_sid, direction) VALUES (?,?,?,?,?,?)",
+                                                  (lead["id"], lead["phone"], msg, "sent", sid, "outbound"))
+                                    conn2.commit()
+                                    conn2.close()
+                                except Exception as e:
+                                    print(f"[auto-sequence] Error for {lead.get('name')}: {e}", flush=True)
+                else:
+                    conn.close()
+        except Exception as e:
+            print(f"[auto-sequence] loop error: {e}", flush=True)
+        try:
             # Re-engage leads that went cold 30+ days ago (one final message)
             reeng_cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
             conn = get_db()
@@ -1418,8 +1464,8 @@ async def get_settings():
 @app.post("/api/settings")
 async def save_settings(request: Request):
     body = await request.json()
-    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key", "dashboard_email", "dashboard_password_hash", "resend_api_key"}
-    updates = {k: v for k, v in body.items() if k in allowed and v and v != "***"}
+    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key", "dashboard_email", "dashboard_password_hash", "resend_api_key", "auto_sequence", "daily_limit"}
+    updates = {k: v for k, v in body.items() if k in allowed and v != "" and v != "***"}
     save_config(updates)
     return {"ok": True}
 
@@ -2334,8 +2380,18 @@ async def serve_preview(slug: str):
     slug = slug.replace(".html", "")
     path = os.path.join(PREVIEWS_DIR, f"{slug}.html")
     if not os.path.exists(path):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Preview not found")
+        # File missing — try to regenerate from the lead_id embedded at end of slug
+        m = re.search(r"-(\d+)$", slug)
+        if m:
+            lead_id = int(m.group(1))
+            conn = get_db()
+            row = conn.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+            conn.close()
+            if row:
+                write_preview(dict(row))
+        if not os.path.exists(path):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Preview not found")
     with open(path) as f:
         return f.read()
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LeadGen Dashboard</title>
+<title>EZ SEO Dashboard</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -79,9 +79,18 @@
       <span x-show="stats.total > 0" class="ml-auto text-xs font-bold text-indigo-400" x-text="stats.total"></span>
       <span x-show="replyCount > 0" class="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" :class="stats.total > 0 ? '-ml-1' : 'ml-auto'"></span>
     </div>
+    <div @click="tab='messages'; loadMessages()" :class="tab==='messages' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      Messages
+      <span x-show="replyCount > 0" class="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+    </div>
     <div @click="tab='outreach'" :class="tab==='outreach' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
       Outreach
+    </div>
+    <div @click="tab='pipeline'; loadPipeline()" :class="tab==='pipeline' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+      Pipeline
     </div>
     <div @click="tab='revenue'; loadDeals()" :class="tab==='revenue' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -100,6 +109,157 @@
 
 <!-- Main -->
 <main class="ml-56 flex-1 min-h-screen">
+
+<!-- MESSAGES -->
+<div x-show="tab==='messages'" x-cloak style="display:flex;height:100vh;overflow:hidden;">
+
+  <!-- Conversation list -->
+  <div style="width:300px;min-width:300px;border-right:1px solid #e5e7eb;background:white;display:flex;flex-direction:column;height:100vh;">
+    <div style="padding:16px;border-bottom:1px solid #e5e7eb;">
+      <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:10px;">Messages</div>
+      <input x-model="msgSearch" placeholder="Search..." style="width:100%;background:#f3f4f6;border:none;border-radius:10px;padding:8px 12px;font-size:13px;color:#111;outline:none;">
+    </div>
+    <div style="flex:1;overflow-y:auto;">
+      <div x-show="msgLeads.length===0" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px;">No conversations yet.</div>
+      <template x-for="lead in filteredMsgLeads" :key="lead.id">
+        <div @click="selectMsgLead(lead)"
+          :style="msgActiveLead?.id===lead.id ? 'background:#ede9fe;' : 'background:white;'"
+          style="padding:14px 16px;cursor:pointer;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:10px;"
+          :class="msgActiveLead?.id!==lead.id ? 'hover:bg-gray-50' : ''">
+          <!-- Avatar -->
+          <div :style="'width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;color:white;background:' + avatarColor(lead.name)">
+            <span x-text="lead.name.charAt(0).toUpperCase()"></span>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;" x-text="lead.name"></span>
+              <span style="font-size:11px;color:#9ca3af;flex-shrink:0;" x-text="lead.last_sms_at ? fmtMsgTime(lead.last_sms_at) : ''"></span>
+            </div>
+            <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="lead.last_message || lead.status"></div>
+          </div>
+          <span x-show="lead.status==='replied' || lead.status==='claimed' || lead.status==='closing'" style="width:8px;height:8px;border-radius:50%;background:#6366f1;flex-shrink:0;"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Thread panel -->
+  <div style="flex:1;display:flex;flex-direction:column;height:100vh;background:#f5f6fa;">
+    <!-- Empty state -->
+    <div x-show="!msgActiveLead" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#9ca3af;">
+      <svg style="width:48px;height:48px;opacity:0.3;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      <span style="font-size:14px;">Select a conversation</span>
+    </div>
+
+    <!-- Active thread -->
+    <template x-if="msgActiveLead">
+      <div style="display:flex;flex-direction:column;height:100%;">
+        <!-- Header -->
+        <div style="padding:16px 20px;background:white;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;">
+          <div :style="'width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:white;background:' + avatarColor(msgActiveLead.name)">
+            <span x-text="msgActiveLead.name.charAt(0).toUpperCase()"></span>
+          </div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#111;" x-text="msgActiveLead.name"></div>
+            <div style="font-size:12px;color:#6b7280;" x-text="msgActiveLead.phone"></div>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+            <span :class="'status-badge s-' + msgActiveLead.status" x-text="msgActiveLead.status"></span>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div x-ref="msgScroll" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px;">
+          <div x-show="msgMessages.length===0" style="text-align:center;color:#9ca3af;font-size:13px;padding:40px 0;">No messages yet.</div>
+          <template x-for="(msg, i) in msgMessages" :key="i">
+            <div :style="msg.direction==='inbound' ? 'display:flex;justify-content:flex-start;' : 'display:flex;justify-content:flex-end;'">
+              <div :style="msg.direction==='inbound'
+                ? 'background:white;color:#111;border-radius:18px;border-bottom-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,0.08);max-width:72%;padding:10px 14px;'
+                : 'background:#6366f1;color:white;border-radius:18px;border-bottom-right-radius:4px;max-width:72%;padding:10px 14px;'">
+                <div style="font-size:14px;line-height:1.5;" x-html="linkify(msg.message)"></div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                  <span style="font-size:11px;opacity:0.55;" x-text="fmtMsgTime(msg.sent_at)"></span>
+                  <template x-if="msg.direction!=='inbound' && msg.delivery_status">
+                    <span :style="msg.delivery_status==='delivered' ? 'font-size:11px;color:rgba(255,255,255,0.7)' : 'font-size:11px;opacity:0.5;'" x-text="msg.delivery_status==='delivered' ? '✓ delivered' : msg.delivery_status"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Input -->
+        <div style="padding:16px 20px;background:white;border-top:1px solid #e5e7eb;">
+          <div style="display:flex;gap:10px;align-items:flex-end;">
+            <textarea x-model="threadReply" @keydown.enter.prevent="sendMsgReply()"
+              placeholder="Type a message..." rows="1"
+              style="flex:1;background:#f3f4f6;border:none;border-radius:20px;padding:10px 16px;font-size:14px;color:#111;outline:none;resize:none;max-height:120px;"
+              @input="$el.style.height='auto';$el.style.height=$el.scrollHeight+'px'"></textarea>
+            <button @click="sendMsgReply()" :disabled="!threadReply.trim() || threadSending"
+              style="width:40px;height:40px;border-radius:50%;background:#6366f1;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:1;"
+              :style="(!threadReply.trim() || threadSending) ? 'opacity:0.4;cursor:not-allowed;background:#6366f1;width:40px;height:40px;border-radius:50%;border:none;' : 'background:#6366f1;width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;'">
+              <svg style="width:18px;height:18px;color:white;" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            </button>
+          </div>
+          <div x-show="threadSendResult" style="font-size:12px;margin-top:8px;text-align:center;" :style="threadSendResult?.ok ? 'color:#16a34a' : 'color:#dc2626'" x-text="threadSendResult?.ok ? 'Sent' : threadSendResult?.error"></div>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- PIPELINE KANBAN -->
+<div x-show="tab==='pipeline'" x-cloak style="height:100vh;overflow:hidden;display:flex;flex-direction:column;">
+  <div style="padding:20px 24px 12px;background:white;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+    <h1 style="font-size:20px;font-weight:700;color:#111;">Pipeline</h1>
+    <p style="font-size:13px;color:#6b7280;margin-top:2px;">Drag cards between columns to update status</p>
+  </div>
+  <div style="flex:1;overflow-x:auto;overflow-y:hidden;padding:20px 24px;display:flex;gap:14px;">
+    <template x-for="col in [
+      {key:'new',label:'New',color:'#dbeafe',text:'#1d4ed8'},
+      {key:'contacted',label:'Contacted',color:'#fef3c7',text:'#b45309'},
+      {key:'replied',label:'Replied',color:'#ede9fe',text:'#7c3aed'},
+      {key:'preview_sent',label:'Preview Sent',color:'#ffedd5',text:'#c2410c'},
+      {key:'building',label:'Building',color:'#fef9c3',text:'#854d0e'},
+      {key:'closing',label:'Closing',color:'#fce7f3',text:'#be185d'},
+      {key:'closed',label:'Closed',color:'#dcfce7',text:'#15803d'},
+      {key:'has_website',label:'Has Website',color:'#f3f4f6',text:'#6b7280'},
+      {key:'dead',label:'Dead',color:'#f3f4f6',text:'#9ca3af'}
+    ]" :key="col.key">
+      <div style="min-width:220px;max-width:220px;display:flex;flex-direction:column;height:100%;"
+        @dragover.prevent
+        @drop.prevent="moveLead(pipelineDragLead, col.key)">
+        <!-- Column header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span :style="'font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;background:'+col.color+';color:'+col.text" x-text="col.label.toUpperCase()"></span>
+          </div>
+          <span style="font-size:12px;font-weight:600;color:#9ca3af;" x-text="(pipelineLeads[col.key]||[]).length"></span>
+        </div>
+        <!-- Cards -->
+        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:8px;">
+          <template x-for="lead in (pipelineLeads[col.key]||[])" :key="lead.id">
+            <div draggable="true"
+              @dragstart="pipelineDragLead=lead"
+              @click="tab='messages'; loadMessages().then(() => selectMsgLead(lead))"
+              style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:12px;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div :style="'width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0;background:'+avatarColor(lead.name)">
+                  <span x-text="lead.name.charAt(0).toUpperCase()"></span>
+                </div>
+                <span style="font-size:13px;font-weight:600;color:#111;line-height:1.3;" x-text="lead.name"></span>
+              </div>
+              <div style="font-size:11px;color:#6b7280;" x-text="lead.category"></div>
+              <div style="font-size:11px;color:#9ca3af;margin-top:2px;" x-text="(lead.location||'').split(',')[0]"></div>
+              <div x-show="lead.last_sms_at" style="font-size:11px;color:#a78bfa;margin-top:6px;" x-text="fmtMsgTime(lead.last_sms_at)"></div>
+            </div>
+          </template>
+          <div x-show="(pipelineLeads[col.key]||[]).length===0" style="font-size:12px;color:#d1d5db;text-align:center;padding:20px 0;">Empty</div>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
 
 <!-- OVERVIEW -->
 <div x-show="tab==='dashboard'" class="p-8">
@@ -751,6 +911,12 @@ function app() {
     threadReply: '',
     threadSending: false,
     threadSendResult: null,
+    msgLeads: [],
+    msgActiveLead: null,
+    msgMessages: [],
+    msgSearch: '',
+    pipelineLeads: {},
+    pipelineDragLead: null,
     syncingReplies: false,
     syncing: false,
     editLead: null,
@@ -777,6 +943,12 @@ function app() {
     allLocations: ['Naperville IL','Schaumburg IL','Elmhurst IL','Orland Park IL','Bolingbrook IL','Aurora IL','Joliet IL','Oak Park IL','Downers Grove IL'],
     selectedCats: [],
     selectedLocs: [],
+
+    get filteredMsgLeads() {
+      if (!this.msgSearch.trim()) return this.msgLeads;
+      const q = this.msgSearch.toLowerCase();
+      return this.msgLeads.filter(l => l.name.toLowerCase().includes(q) || (l.phone||'').includes(q));
+    },
 
     get smsRecipientCount() {
       if (this.smsTarget === 'selected') return this.selectedIds.length;
@@ -916,6 +1088,84 @@ function app() {
       window.location.href = url;
     },
 
+    async loadMessages() {
+      await fetch('/api/sync-twilio-replies', { method: 'POST' });
+      const r = await fetch('/api/leads?limit=500');
+      const all = await r.json();
+      this.msgLeads = all.filter(l => l.last_sms_at || l.status !== 'new')
+        .sort((a, b) => (b.last_sms_at || '').localeCompare(a.last_sms_at || ''));
+      if (this.msgActiveLead) {
+        const updated = this.msgLeads.find(l => l.id === this.msgActiveLead.id);
+        if (updated) this.msgActiveLead = updated;
+      }
+    },
+
+    async selectMsgLead(lead) {
+      this.msgActiveLead = lead;
+      this.threadReply = '';
+      this.threadSendResult = null;
+      const r = await fetch('/api/leads/' + lead.id + '/messages');
+      this.msgMessages = await r.json();
+      await this.$nextTick();
+      const el = this.$refs.msgScroll;
+      if (el) el.scrollTop = el.scrollHeight;
+    },
+
+    async sendMsgReply() {
+      if (!this.threadReply.trim() || this.threadSending) return;
+      this.threadSending = true;
+      this.threadSendResult = null;
+      try {
+        const r = await fetch('/api/sms/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [this.msgActiveLead.id], message: this.threadReply.trim() })
+        });
+        this.threadSendResult = await r.json();
+        if (this.threadSendResult.ok) {
+          this.threadReply = '';
+          const r2 = await fetch('/api/leads/' + this.msgActiveLead.id + '/messages');
+          this.msgMessages = await r2.json();
+          await this.$nextTick();
+          const el = this.$refs.msgScroll;
+          if (el) el.scrollTop = el.scrollHeight;
+          setTimeout(() => this.threadSendResult = null, 2000);
+        }
+      } catch(e) {
+        this.threadSendResult = { ok: false, error: e.message };
+      } finally {
+        this.threadSending = false;
+      }
+    },
+
+    avatarColor(name) {
+      const colors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6'];
+      let hash = 0;
+      for (let c of (name||'')) hash = c.charCodeAt(0) + ((hash<<5)-hash);
+      return colors[Math.abs(hash) % colors.length];
+    },
+
+    async loadPipeline() {
+      const r = await fetch('/api/leads?limit=1000');
+      const all = await r.json();
+      const cols = { new:[], contacted:[], replied:[], preview_sent:[], building:[], has_website:[], closing:[], closed:[], dead:[] };
+      for (const lead of all) {
+        const s = lead.status || 'new';
+        if (cols[s]) cols[s].push(lead);
+        else cols['new'].push(lead);
+      }
+      this.pipelineLeads = cols;
+    },
+
+    async moveLead(lead, newStatus) {
+      await fetch('/api/leads/' + lead.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      await this.loadPipeline();
+    },
+
     async openThread(lead) {
       this.threadLead = lead;
       this.threadMessages = [];
@@ -984,6 +1234,11 @@ function app() {
       const prevReply = this.replyCount;
       await this.loadStats();
       if (this.tab === 'leads') await this.loadLeads();
+      if (this.tab === 'messages') {
+        await this.loadMessages();
+        if (this.msgActiveLead) await this.selectMsgLead(this.msgActiveLead);
+      }
+      if (this.tab === 'pipeline') await this.loadPipeline();
       if (this.replyCount > prevReply) {
         toast(`New reply received. ${this.replyCount} lead${this.replyCount === 1 ? '' : 's'} need attention.`);
       }

@@ -197,7 +197,7 @@ def sync_replied_statuses() -> int:
 # ── Sequence templates ────────────────────────────────────────────────────────
 
 _DEFAULT_SEQUENCE = [
-    "Hey {name}, I took some time and built your business a website. Take a look: {preview_url}. If you like it, tell me what you are willing to pay for it. Any number works, I promise there is no catch.",
+    "Hey {name}, I took some time and built your business a website. Take a look:\n{preview_url}\nIf you like it, tell me what you are willing to pay for it. Any number works, I promise there is no catch.",
     "Hey {name}, just checking if you got a chance to look at the site. No pressure, just curious what you thought.",
     "Hey {name}, I will keep the site up for you. Whenever you are ready just let me know what you would pay and we can go from there.",
 ]

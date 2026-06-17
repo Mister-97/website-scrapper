@@ -308,19 +308,37 @@ async def sequence_loop():
             cfg = load_config()
             if cfg.get("auto_sequence"):
                 daily_limit = int(cfg.get("daily_limit") or 200)
+                per_agent_limit = daily_limit // len(AGENTS)
                 today_start = datetime.now().strftime("%Y-%m-%d") + " 00:00:00"
                 conn = get_db()
                 sent_today = conn.execute(
                     "SELECT COUNT(*) FROM sms_log WHERE sent_at >= ? AND direction='outbound'",
                     (today_start,)
                 ).fetchone()[0]
+                # Split quota evenly: each agent gets their own slice of the daily limit
+                agent_leads = []
+                for agent_id in AGENTS:
+                    agent_sent = conn.execute(
+                        "SELECT COUNT(*) FROM sms_log WHERE sent_at >= ? AND direction='outbound' "
+                        "AND lead_id IN (SELECT id FROM leads WHERE agent_id=?)",
+                        (today_start, agent_id)
+                    ).fetchone()[0]
+                    agent_remaining = per_agent_limit - agent_sent
+                    if agent_remaining > 0:
+                        rows = conn.execute(
+                            "SELECT * FROM leads WHERE status='new' AND sequence_active=0 AND phone IS NOT NULL "
+                            "AND phone != '' AND agent_id=? LIMIT ?", (agent_id, agent_remaining)
+                        ).fetchall()
+                        agent_leads.extend(rows)
+                # Interleave agents so neither monopolizes the send window
+                from_agents = {a: [l for l in agent_leads if l["agent_id"] == a] for a in AGENTS}
+                new_leads = []
+                while any(from_agents[a] for a in AGENTS):
+                    for a in AGENTS:
+                        if from_agents[a]:
+                            new_leads.append(from_agents[a].pop(0))
                 remaining = daily_limit - sent_today
-                if remaining > 0:
-                    new_leads = conn.execute(
-                        "SELECT * FROM leads WHERE status='new' AND sequence_active=0 AND phone IS NOT NULL "
-                        "AND phone != '' LIMIT ?", (remaining,)
-                    ).fetchall()
-                    conn.close()
+                conn.close()
                     if new_leads:
                         ids = [l["id"] for l in new_leads]
                         print(f"[auto-sequence] Starting {len(ids)} new leads ({sent_today}/{daily_limit} sent today)", flush=True)

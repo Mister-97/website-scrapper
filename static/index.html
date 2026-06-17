@@ -403,7 +403,7 @@
 </div>
 
 <!-- OVERVIEW -->
-<div x-show="tab==='dashboard'" class="p-8">
+<div x-show="tab==='dashboard'" class="p-8" x-effect="if(tab==='dashboard') { $nextTick(() => renderCharts()) }">
   <div class="mb-8">
     <h1 class="text-2xl font-bold mb-1 text-gray-900">Overview</h1>
     <p class="text-gray-500 text-sm">Your lead generation pipeline at a glance.</p>
@@ -1141,27 +1141,38 @@ function app() {
     },
 
     renderCharts() {
-      this.$nextTick(() => {
+      // Delay so the DOM has final layout dimensions before Chart.js reads canvas size
+      setTimeout(() => {
         const catEl = document.getElementById('catChart');
         const locEl = document.getElementById('locChart');
         if (!catEl || !locEl) return;
-        if (this.catChart) this.catChart.destroy();
-        if (this.locChart) this.locChart.destroy();
+        if (this.catChart) { this.catChart.destroy(); this.catChart = null; }
+        if (this.locChart) { this.locChart.destroy(); this.locChart = null; }
         const catData = this.stats.by_category || [];
         const locData = this.stats.by_location || [];
         const gridColor = '#f3f4f6';
         const tickColor = '#9ca3af';
+        const baseOpts = {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: tickColor, font: { size: 10 }, maxRotation: 45 }, grid: { color: gridColor } },
+            y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor }, beginAtZero: true }
+          }
+        };
         this.catChart = new Chart(catEl, {
           type: 'bar',
-          data: { labels: catData.map(d => d.category), datasets: [{ data: catData.map(d => d.cnt), backgroundColor: '#4f46e5', borderRadius: 6, borderSkipped: false }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } } } }
+          data: { labels: catData.map(d => d.category), datasets: [{ data: catData.map(d => d.cnt), backgroundColor: '#4f46e5' }] },
+          options: JSON.parse(JSON.stringify(baseOpts))
         });
         this.locChart = new Chart(locEl, {
           type: 'bar',
-          data: { labels: locData.map(d => (d.location||'').split(',')[0]), datasets: [{ data: locData.map(d => d.cnt), backgroundColor: '#7c3aed', borderRadius: 6, borderSkipped: false }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } } } }
+          data: { labels: locData.map(d => (d.location||'').split(',')[0]), datasets: [{ data: locData.map(d => d.cnt), backgroundColor: '#7c3aed' }] },
+          options: JSON.parse(JSON.stringify(baseOpts))
         });
-      });
+      }, 100);
     },
 
     async startScrape() {
@@ -1609,7 +1620,7 @@ function app() {
 
 <!-- Mobile bottom nav -->
 <nav class="mobile-nav">
-  <div @click="tab='dashboard'; loadStats().then(()=>renderCharts())" :class="tab==='dashboard' ? 'mobile-nav-item mobile-nav-active' : 'mobile-nav-item mobile-nav-inactive'">
+  <div @click="tab='dashboard'; loadStats().then(()=>{ renderCharts(); })" :class="tab==='dashboard' ? 'mobile-nav-item mobile-nav-active' : 'mobile-nav-item mobile-nav-inactive'">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
     <span>Overview</span>
   </div>

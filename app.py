@@ -1709,12 +1709,17 @@ async def sms_reply_webhook(request: Request):
         conn.close()
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
-    # Notify Josh FIRST via push notification
+    # Only notify for hot signals - Wyatt/Andrew handle everything else silently
+    t_lower = body.lower()
+    is_price_question = any(w in t_lower for w in ["how much", "cost", "price", "charge", "fee", "pay", "zelle"])
+    is_positive = any(w in t_lower for w in ["yes", "sure", "let's do", "lets do", "sounds good", "interested", "send it", "go ahead", "ok cool", "deal"])
+
     if intent == "claim":
         send_ntfy("HOT LEAD - CALL NOW", f"{matched['name']} wants their site live.\nCall: {from_}", priority="urgent")
-    else:
-        label = {"no_website": "No website - sending preview", "has_website": "Has website/social", "other": "Replied"}.get(intent, "Replied")
-        send_ntfy(f"Reply: {matched['name']}", f"{label}\n\"{body}\"\nCall/text: {from_}", priority="high")
+    elif is_price_question:
+        send_ntfy("Asking about price", f"{matched['name']}\n\"{body}\"\n{from_}", priority="high")
+    elif is_positive:
+        send_ntfy("Positive reply", f"{matched['name']}\n\"{body}\"\n{from_}", priority="high")
 
     if intent == "no_website" and has_twilio:
         # Build preview and send the link

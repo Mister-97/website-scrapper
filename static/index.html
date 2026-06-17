@@ -73,20 +73,16 @@
       Scraper
       <span x-show="scraping" class="ml-auto w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
     </div>
-    <div @click="tab='leads'; loadLeads()" :class="tab==='leads' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+    <div @click="tab='leads'; loadLeads(); replyCount=0;" :class="tab==='leads' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
       Leads
       <span x-show="stats.total > 0" class="ml-auto text-xs font-bold text-indigo-400" x-text="stats.total"></span>
       <span x-show="replyCount > 0" class="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" :class="stats.total > 0 ? '-ml-1' : 'ml-auto'"></span>
     </div>
-    <div @click="tab='messages'; loadMessages()" :class="tab==='messages' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+    <div @click="tab='messages'; loadMessages(); replyCount=0;" :class="tab==='messages' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
       Messages
       <span x-show="replyCount > 0" class="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-    </div>
-    <div @click="tab='outreach'" :class="tab==='outreach' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-      Outreach
     </div>
     <div @click="tab='team'; loadLeaderboard()" :class="tab==='team' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
@@ -615,120 +611,6 @@
     <div class="flex gap-2">
       <button @click="page--; loadLeads()" :disabled="page <= 1" class="btn-ghost text-sm px-3 py-1.5" :class="page <= 1 ? 'opacity-30' : ''">Prev</button>
       <button @click="page++; loadLeads()" :disabled="page >= Math.ceil(totalLeads / pageSize)" class="btn-ghost text-sm px-3 py-1.5" :class="page >= Math.ceil(totalLeads / pageSize) ? 'opacity-30' : ''">Next</button>
-    </div>
-  </div>
-</div>
-
-<!-- OUTREACH -->
-<div x-show="tab==='outreach'" x-cloak class="p-8">
-  <div class="mb-8">
-    <h1 class="text-2xl font-bold mb-1">SMS Outreach</h1>
-    <p class="text-gray-600 text-sm">Send personalized texts to your leads via Twilio.</p>
-  </div>
-
-  <div class="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 mb-5 flex items-center gap-2 text-xs text-gray-600">
-    <svg class="w-3.5 h-3.5 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-    Follow-ups send automatically every 60 seconds on Render. Wyatt and Andrew handle new leads at 8am CST daily.
-  </div>
-
-  <!-- Sequence status bar -->
-  <div class="card p-4 flex items-center justify-between mb-5">
-    <div class="flex items-center gap-6">
-      <div>
-        <div class="text-xs text-gray-600 mb-0.5">Active in sequence</div>
-        <div class="text-2xl font-bold text-indigo-400" x-text="seqStatus.active || 0"></div>
-      </div>
-      <div>
-        <div class="text-xs text-gray-600 mb-0.5">Ready to send now</div>
-        <div class="text-2xl font-bold text-yellow-400" x-text="seqStatus.due || 0"></div>
-      </div>
-    </div>
-    <div class="flex gap-2">
-      <button @click="processSequence()" :disabled="seqProcessing" class="btn-primary flex items-center gap-2">
-        <span x-show="!seqProcessing">Send Due Follow-ups</span>
-        <span x-show="seqProcessing" class="flex items-center gap-2">
-          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-          Sending...
-        </span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Sequence steps -->
-  <div class="card p-5 mb-5">
-    <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">The 4-Text Sequence</div>
-    <div class="space-y-3">
-      <div class="flex gap-3 items-start">
-        <div class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
-        <div>
-          <div class="text-xs text-gray-500 mb-1">Day 0 (immediately)</div>
-          <div class="text-sm text-gray-300">Hey I was searching for {name} but couldn't find a website, do you guys have one?</div>
-        </div>
-      </div>
-      <div class="flex gap-3 items-start">
-        <div class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
-        <div>
-          <div class="text-xs text-gray-500 mb-1">Day 1</div>
-          <div class="text-sm text-gray-300">Yeah I actually built you a free preview to show you what it could look like. Want to see it? {preview_url}</div>
-        </div>
-      </div>
-      <div class="flex gap-3 items-start">
-        <div class="w-6 h-6 rounded-full bg-indigo-900 text-indigo-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</div>
-        <div>
-          <div class="text-xs text-gray-500 mb-1">Day 3</div>
-          <div class="text-sm text-gray-300">No worries if not, just didn't want you losing customers to competitors who have sites.</div>
-        </div>
-      </div>
-      <div class="flex gap-3 items-start">
-        <div class="w-6 h-6 rounded-full bg-yellow-900 text-yellow-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</div>
-        <div>
-          <div class="text-xs text-gray-500 mb-1">Day 5 (closer)</div>
-          <div class="text-sm text-gray-300">Last one I promise. I'm about to give this slot to another {category} in {city}, wanted to check if you wanted it first.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-2 gap-5">
-    <div class="card p-5">
-      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">One-off Message</div>
-      <textarea x-model="smsTemplate" rows="6" class="input resize-none text-sm mb-3" placeholder="Write your message...&#10;&#10;Use {name} for business name."></textarea>
-      <div class="text-xs text-gray-600 mb-4">
-        Variables: <span class="text-indigo-400 font-mono">{name}</span> = business name
-      </div>
-      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Preview</div>
-      <div class="bg-gray-900/50 rounded-xl p-4 text-sm text-gray-300 leading-relaxed border border-gray-800" x-text="smsTemplate.replace('{name}', 'Apex Nail Lounge') || 'No message yet'"></div>
-    </div>
-
-    <div class="card p-5">
-      <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">Select Recipients</div>
-      <div class="space-y-2 mb-4">
-        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-          <input type="radio" x-model="smsTarget" value="new" class="accent-indigo-500"> All <span class="status-badge s-new">new</span> leads
-        </label>
-        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-          <input type="radio" x-model="smsTarget" value="contacted" class="accent-indigo-500"> All <span class="status-badge s-contacted">contacted</span> (follow-up)
-        </label>
-        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-          <input type="radio" x-model="smsTarget" value="selected" class="accent-indigo-500"> Selected leads only
-          <span x-show="selectedIds.length > 0" class="text-indigo-400 font-bold text-xs" x-text="`(${selectedIds.length})`"></span>
-        </label>
-      </div>
-
-      <div class="bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-800">
-        <div class="text-xs text-gray-600 mb-2">Recipients</div>
-        <div class="text-2xl font-bold" x-text="smsRecipientCount"></div>
-        <div class="text-xs text-gray-600 mt-1" x-text="'~$' + (smsRecipientCount * 0.0079).toFixed(2) + ' Twilio cost'"></div>
-      </div>
-
-      <button @click="sendSMS()" :disabled="smsSending || !smsTemplate || smsRecipientCount === 0" class="btn-primary w-full py-2.5 flex items-center justify-center gap-2">
-        <span x-show="!smsSending">Send SMS</span>
-        <span x-show="smsSending" class="flex items-center gap-2">
-          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-          Sending...
-        </span>
-      </button>
-      <div x-show="smsResult" class="mt-3 text-sm text-center" :class="smsResult?.ok ? 'text-green-400' : 'text-red-400'" x-text="smsResult?.ok ? `Sent ${smsResult.sent} texts!` : smsResult?.error"></div>
     </div>
   </div>
 </div>

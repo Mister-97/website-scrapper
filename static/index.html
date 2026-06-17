@@ -205,9 +205,13 @@
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
             <span :style="msgActiveLead.agent_id===2 ? 'font-size:12px;font-weight:700;color:#10b981;' : 'font-size:12px;font-weight:700;color:#6366f1;'" x-text="msgActiveLead.agent_id===2 ? 'Andrew' : 'Wyatt'"></span>
             <span :class="'status-badge s-' + msgActiveLead.status" x-text="msgActiveLead.status"></span>
+            <button @click="copyPreviewUrl(msgActiveLead)"
+              style="font-size:11px;font-weight:700;color:#0369a1;background:#e0f2fe;padding:3px 10px;border-radius:100px;border:none;cursor:pointer;white-space:nowrap;">
+              Copy Link
+            </button>
             <a :href="'/api/preview/download/' + msgActiveLead.id" target="_blank"
               style="font-size:11px;font-weight:700;color:#6366f1;background:#ede9fe;padding:3px 10px;border-radius:100px;text-decoration:none;white-space:nowrap;">
-              Download Preview
+              Download HTML
             </a>
           </div>
         </div>
@@ -1291,6 +1295,19 @@ function app() {
       const r = await fetch('/api/preview/generate/' + lead.id, { method: 'POST' });
       const data = await r.json();
       if (data.ok) { lead.preview_url = data.preview_url; }
+    },
+
+    async copyPreviewUrl(lead) {
+      let url = lead.preview_url;
+      if (!url) {
+        const r = await fetch('/api/preview/generate/' + lead.id, { method: 'POST' });
+        const data = await r.json();
+        if (data.ok) { lead.preview_url = data.preview_url; url = data.preview_url; }
+      }
+      if (!url) return toast('No preview available');
+      const full = url.startsWith('http') ? url : (window.location.origin + url);
+      await navigator.clipboard.writeText(full);
+      toast('Preview link copied');
     },
 
     async generateBulkPreviews() {

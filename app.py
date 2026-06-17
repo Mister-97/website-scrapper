@@ -222,6 +222,8 @@ def classify_reply(text: str, current_status: str = "") -> str:
         r"\bclaim\b", r"want to claim", r"i want it", r"get it live",
         r"\bsign me up\b", r"\blet'?s do it\b", r"\blet'?s go\b",
         r"i'?m interested", r"\byes please\b", r"\bdo it\b",
+        r"^\s*yes\s*$", r"^\s*want\s*$", r"\bi want\b", r"\bwant it\b",
+        r"\bsend it\b", r"\bgo ahead\b", r"\bsounds good\b", r"\blet'?s go\b",
     ]
     for p in claim_patterns:
         if re.search(p, t):
@@ -1991,7 +1993,7 @@ async def sms_reply_webhook(request: Request):
             reply_msg = (
                 f"Perfect, I actually already built one for you. "
                 f"Here is your free preview site: {preview_link}\n\n"
-                f"Reply YES if you want to keep it and I will get it live for you."
+                f"Reply WANT or CLAIM if you want to keep it and I will get it live today."
             )
             send_twilio_sms(
                 cfg["twilio_account_sid"], cfg["twilio_auth_token"],

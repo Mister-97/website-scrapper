@@ -1401,6 +1401,8 @@ def claude_reply(lead: dict, conversation: list, api_key: str) -> str:
 
     system = f"""You are {agent['name']}, a web designer texting local business owners. You built them a free website preview and you are following up.
 
+IMPORTANT: Never use dashes, hyphens, or em dashes in your replies. Use commas or periods instead.
+
 Business you are texting: {name} ({category} in {city})
 {"Preview already built: " + preview_url if preview_url else "You have not built a preview yet but can offer to."}
 

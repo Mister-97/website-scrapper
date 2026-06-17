@@ -269,7 +269,6 @@ def classify_reply(text: str, current_status: str = "") -> str:
 
 async def sequence_loop():
     """Background loop: follow-ups every 60s, auto-scrape at 8am CST, 30-day re-engagement."""
-    last_scrape_date = None
     last_sequence_notify_date = None
     # Check immediately on startup before first sleep so a fresh deploy in the scrape window still fires
     first_run = True
@@ -279,11 +278,12 @@ async def sequence_loop():
         first_run = False
         try:
             # Auto-scrape at 8am CST (14:00 UTC) -- 30-minute window so restarts/deploys don't miss it
+            # last_scrape_date is persisted to disk so server restarts don't cause missed or double fires
             now_utc = datetime.utcnow()
-            today = now_utc.date()
-            if now_utc.hour == 14 and now_utc.minute < 30 and last_scrape_date != today:
-                last_scrape_date = today
-                cfg = load_config()
+            today_str = now_utc.strftime("%Y-%m-%d")
+            cfg = load_config()
+            if now_utc.hour == 14 and now_utc.minute < 30 and cfg.get("last_scrape_date") != today_str:
+                save_config({"last_scrape_date": today_str})
                 queue = cfg.get("scrape_queue") or []
                 all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
                 if queue:
@@ -1354,6 +1354,8 @@ async def trigger_daily_scrape():
     else:
         cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
         locs = [random.choice(all_locs)]
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    save_config({"last_scrape_date": today_str})
     send_ntfy("Manual Scrape Triggered", f"Starting in {locs[0]}. Will keep going until 200 leads (100 each).", priority="default")
     asyncio.create_task(run_scraper(cats, locs, min_leads=200, extra_locs=all_locs))
     return JSONResponse({"ok": True, "starting_in": locs[0]})

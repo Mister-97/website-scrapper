@@ -11,6 +11,7 @@ import hmac
 import io
 import json
 import os
+import random
 import re
 import secrets
 import sqlite3
@@ -285,7 +286,8 @@ async def sequence_loop():
                     locs = list({q["location"] for q in queue})
                 else:
                     cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
-                    locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX"]
+                    all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
+                    locs = [random.choice(all_locs)]
                 print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories x {len(locs)} locations")
                 send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. {len(cats)} categories x {len(locs)} locations.", priority="default")
                 asyncio.create_task(run_scraper(cats, locs))
@@ -2129,22 +2131,27 @@ async def test_day0():
         # Normalize phone for lookup
         digits = re.sub(r'\D', '', notify_number)
 
+        # Pick a random city from the configured location list
+        all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
+        test_location = random.choice(all_locs)
+        test_city = test_location.split(" TX")[0].split(" IL")[0].strip()
+
         # Reuse or create a test lead with this phone so inbound replies are routed correctly
         existing = conn.execute("SELECT * FROM leads WHERE phone = ? OR phone = ?", (notify_number, '+' + digits)).fetchone()
         if existing:
             lead_id = existing["id"]
             # Reset to new so sequence starts fresh
-            conn.execute("UPDATE leads SET status='new', sequence_active=0, sequence_step=0, intake_step=0, intake_data='{}' WHERE id=?", (lead_id,))
+            conn.execute("UPDATE leads SET status='new', sequence_active=0, sequence_step=0, intake_step=0, intake_data='{}', location=? WHERE id=?", (test_location, lead_id))
         else:
             conn.execute(
                 "INSERT INTO leads (name, phone, category, location, status, agent_id, maps_url) VALUES (?,?,?,?,?,?,?)",
-                ("Magic Fresh", notify_number, "cleaning service", "Dallas TX", "new", 1, "https://maps.google.com")
+                ("Magic Fresh", notify_number, "cleaning service", test_location, "new", 1, "https://maps.google.com")
             )
             lead_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         seq = get_sequence()
-        msg = seq[0].replace("{name}", "Magic Fresh").replace("{category}", "cleaning service").replace("{city}", "Dallas")
+        msg = seq[0].replace("{name}", "Magic Fresh").replace("{category}", "cleaning service").replace("{city}", test_city)
         sid = send_twilio_sms(account_sid, auth_token, from_number, notify_number, msg)
 
         # Mark as contacted and log the outbound SMS

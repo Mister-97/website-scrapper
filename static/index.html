@@ -88,6 +88,10 @@
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
       Outreach
     </div>
+    <div @click="tab='team'; loadLeaderboard()" :class="tab==='team' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+      Team
+    </div>
     <div @click="tab='pipeline'; loadPipeline()" :class="tab==='pipeline' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
       Pipeline
@@ -202,6 +206,86 @@
             </button>
           </div>
           <div x-show="threadSendResult" style="font-size:12px;margin-top:8px;text-align:center;" :style="threadSendResult?.ok ? 'color:#16a34a' : 'color:#dc2626'" x-text="threadSendResult?.ok ? 'Sent' : threadSendResult?.error"></div>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- TEAM LEADERBOARD -->
+<div x-show="tab==='team'" x-cloak class="p-8">
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold mb-1 text-gray-900">Sales Team</h1>
+    <p class="text-gray-500 text-sm">Wyatt vs Andrew - weekly leaderboard resets every Monday.</p>
+  </div>
+
+  <div class="grid grid-cols-2 gap-6 mb-8">
+    <template x-for="(agent, name) in leaderboard" :key="name">
+      <div class="card p-6 relative overflow-hidden">
+        <!-- Crown for leader -->
+        <template x-if="Object.values(leaderboard).length===2 && agent.week_closes >= Math.max(...Object.values(leaderboard).map(a=>a.week_closes)) && agent.week_closes > 0">
+          <div style="position:absolute;top:16px;right:16px;font-size:24px;">👑</div>
+        </template>
+        <div class="flex items-center gap-4 mb-6">
+          <div :style="'width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;background:' + (agent.agent_id===1 ? '#6366f1' : '#10b981')">
+            <span x-text="name.charAt(0)"></span>
+          </div>
+          <div>
+            <div class="text-xl font-bold text-gray-900" x-text="name"></div>
+            <div class="text-sm text-gray-500" x-text="agent.agent_id===1 ? 'Direct Closer' : 'Relationship Builder'"></div>
+          </div>
+        </div>
+
+        <!-- Big stat: week closes -->
+        <div class="text-center mb-6 py-4 rounded-xl" :style="agent.agent_id===1 ? 'background:#ede9fe' : 'background:#d1fae5'">
+          <div class="text-4xl font-black" :style="agent.agent_id===1 ? 'color:#6366f1' : 'color:#10b981'" x-text="agent.week_closes"></div>
+          <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mt-1">Closes This Week</div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-gray-50 rounded-xl p-3 text-center">
+            <div class="text-xl font-bold text-gray-900" x-text="agent.leads"></div>
+            <div class="text-xs text-gray-500">Leads</div>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-3 text-center">
+            <div class="text-xl font-bold text-gray-900" x-text="agent.replies"></div>
+            <div class="text-xs text-gray-500">Replies</div>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-3 text-center">
+            <div class="text-xl font-bold text-gray-900" x-text="agent.emails_collected"></div>
+            <div class="text-xs text-gray-500">Emails Got</div>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-3 text-center">
+            <div class="text-xl font-bold text-gray-900" x-text="agent.conversion_rate + '%'"></div>
+            <div class="text-xs text-gray-500">Close Rate</div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+          <span class="text-sm text-gray-500">Week Revenue</span>
+          <span class="text-lg font-bold text-green-500" x-text="'$' + (agent.week_revenue||0).toLocaleString()"></span>
+        </div>
+      </div>
+    </template>
+    <div x-show="Object.keys(leaderboard).length===0" class="col-span-2 text-center text-gray-400 py-16">Loading...</div>
+  </div>
+
+  <!-- Head to head bar -->
+  <div x-show="Object.keys(leaderboard).length===2" class="card p-6">
+    <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">Head to Head - Replies</div>
+    <template x-if="Object.keys(leaderboard).length===2">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-sm font-semibold text-indigo-600 w-16 text-right" x-text="Object.values(leaderboard)[0]?.replies"></span>
+          <div class="flex-1 flex gap-1 h-6 rounded-full overflow-hidden bg-gray-100">
+            <div class="bg-indigo-500 rounded-full transition-all" :style="'width:' + (Object.values(leaderboard)[0]?.replies / Math.max(1, Object.values(leaderboard)[0]?.replies + Object.values(leaderboard)[1]?.replies) * 100) + '%'"></div>
+            <div class="bg-emerald-500 rounded-full transition-all" :style="'width:' + (Object.values(leaderboard)[1]?.replies / Math.max(1, Object.values(leaderboard)[0]?.replies + Object.values(leaderboard)[1]?.replies) * 100) + '%'"></div>
+          </div>
+          <span class="text-sm font-semibold text-emerald-600 w-16" x-text="Object.values(leaderboard)[1]?.replies"></span>
+        </div>
+        <div class="flex justify-between text-xs text-gray-400 px-20">
+          <span x-text="Object.keys(leaderboard)[0]"></span>
+          <span x-text="Object.keys(leaderboard)[1]"></span>
         </div>
       </div>
     </template>
@@ -917,6 +1001,7 @@ function app() {
     msgSearch: '',
     pipelineLeads: {},
     pipelineDragLead: null,
+    leaderboard: {},
     syncingReplies: false,
     syncing: false,
     editLead: null,
@@ -1090,10 +1175,11 @@ function app() {
 
     async loadMessages() {
       await fetch('/api/sync-twilio-replies', { method: 'POST' });
-      const r = await fetch('/api/leads?limit=500');
-      const all = await r.json();
-      this.msgLeads = all.filter(l => l.last_sms_at || l.status !== 'new')
-        .sort((a, b) => (b.last_sms_at || '').localeCompare(a.last_sms_at || ''));
+      const r = await fetch('/api/leads?page_size=1000&status=all');
+      const data = await r.json();
+      const all = data.leads || data;
+      this.msgLeads = all.filter(l => (l.sms_sent > 0) || l.status !== 'new')
+        .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       if (this.msgActiveLead) {
         const updated = this.msgLeads.find(l => l.id === this.msgActiveLead.id);
         if (updated) this.msgActiveLead = updated;
@@ -1145,9 +1231,15 @@ function app() {
       return colors[Math.abs(hash) % colors.length];
     },
 
+    async loadLeaderboard() {
+      const r = await fetch('/api/leaderboard');
+      this.leaderboard = await r.json();
+    },
+
     async loadPipeline() {
-      const r = await fetch('/api/leads?limit=1000');
-      const all = await r.json();
+      const r = await fetch('/api/leads?page_size=2000&status=all');
+      const data = await r.json();
+      const all = data.leads || data;
       const cols = { new:[], contacted:[], replied:[], preview_sent:[], building:[], has_website:[], closing:[], closed:[], dead:[] };
       for (const lead of all) {
         const s = lead.status || 'new';

@@ -143,6 +143,11 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+    try:
+        conn.execute("ALTER TABLE leads ADD COLUMN agent_id INTEGER DEFAULT 1")
+        conn.commit()
+    except Exception:
+        pass
     conn.close()
 
 
@@ -213,9 +218,24 @@ def classify_reply(text: str, current_status: str = "") -> str:
 # ── App setup ─────────────────────────────────────────────────────────────────
 
 async def sequence_loop():
-    """Background loop: send due follow-ups every 30 minutes."""
+    """Background loop: follow-ups every 30 min, auto-scrape at 8am CST."""
+    last_scrape_date = None
     while True:
-        await asyncio.sleep(1800)
+        await asyncio.sleep(60)
+        try:
+            # Auto-scrape at 8am CST (14:00 UTC)
+            now_utc = datetime.utcnow()
+            today = now_utc.date()
+            if now_utc.hour == 14 and now_utc.minute < 2 and last_scrape_date != today:
+                last_scrape_date = today
+                cfg = load_config()
+                cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
+                locs = cfg.get("auto_scrape_locations") or ["Naperville IL","Schaumburg IL","Elmhurst IL","Oak Park IL","Bolingbrook IL"]
+                print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories x {len(locs)} locations")
+                send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. {len(cats)} categories x {len(locs)} locations.", priority="default")
+                asyncio.create_task(run_scraper(cats, locs))
+        except Exception as e:
+            print(f"[auto-scrape] error: {e}")
         try:
             sent = await process_due_sequences()
             if sent:
@@ -350,9 +370,11 @@ async def run_scraper(categories: list[str], locations: list[str]):
 
                                 seen_names.add((name, location))
                                 conn = get_db()
+                                total = conn.execute("SELECT COUNT(*) FROM leads").fetchone()[0]
+                                agent_id = 1 if total % 2 == 0 else 2
                                 conn.execute(
-                                    "INSERT INTO leads (name, phone, address, category, location, maps_url, logo_url) VALUES (?,?,?,?,?,?,?)",
-                                    (name, phone, address, category, location, page.url, logo_url)
+                                    "INSERT INTO leads (name, phone, address, category, location, maps_url, logo_url, agent_id) VALUES (?,?,?,?,?,?,?,?)",
+                                    (name, phone, address, category, location, page.url, logo_url, agent_id)
                                 )
                                 conn.commit()
                                 conn.close()
@@ -1332,22 +1354,10 @@ async def save_settings(request: Request):
 
 
 
-def claude_reply(lead: dict, conversation: list, api_key: str) -> str:
-    """Generate a smart sales reply using Claude given the conversation history."""
-    import base64
-    name     = lead.get("name", "this business")
-    category = lead.get("category", "local business")
-    city     = (lead.get("location") or "").split(",")[0].strip()
-    _cfg = load_config()
-    _base = (_cfg.get("base_url") or "https://getezseo.com").rstrip("/")
-    preview_url = f"{_base}{lead.get('preview_url','')}" if lead.get("preview_url") else None
-
-    system = f"""You are Josh, a web designer texting local business owners. You built them a free website preview and you are following up.
-
-Business you are texting: {name} ({category} in {city})
-{"Preview already built: " + preview_url if preview_url else "You have not built a preview yet but can offer to."}
-
-Tone: calm, direct, low pressure. Not overly enthusiastic. Sound like a real person texting, not a salesman. 1 to 3 sentences max. No em dashes, no bullet points, no exclamation marks unless natural.
+AGENTS = {
+    1: {
+        "name": "Wyatt",
+        "system": """Tone: calm, direct, low pressure. Not overly enthusiastic. Sound like a real person texting, not a salesman. 1 to 3 sentences max. No em dashes, no bullet points, no exclamation marks unless natural.
 
 How to handle common replies:
 - They have Instagram or social only: "Nice, Instagram is a good start. Thing is, most people Google before they follow. If you're not showing up there you're losing customers you never even know about. I actually went ahead and built you one already. If you like it we can get it live today, if not no worries at all, zero obligation. Want to see it?"
@@ -1359,9 +1369,43 @@ How to handle common replies:
 - They say ok or want to move forward: "Perfect. What's the best email to send everything over to? I'll get started today."
 - They ask what's included: "Full website, mobile optimized, shows up on Google, and optimized so ChatGPT and Gemini can recommend you. I grab the domain for you and transfer it over once everything's done. You own it, no monthly fees on my end after that."
 - They say not interested or stop: be respectful and exit cleanly.
-- They want to see the preview: send {preview_url if preview_url else "let them know you can put one together for them"}.
+Key framing: zero obligation, if they like it great, if not no problem. Getting it live today is always possible. Never be pushy."""
+    },
+    2: {
+        "name": "Andrew",
+        "system": """Tone: warm, curious, conversational. You genuinely care about helping their business grow. Ask questions, show interest in what they do before pitching. 1 to 3 sentences max. No em dashes, no bullet points, sound like a real person.
 
-Key framing: zero obligation, if they like it great, if not no problem. Getting it live today is always possible. They own the domain after transfer. Never be pushy."""
+How to handle common replies:
+- They have Instagram or social only: show genuine interest first. "Oh nice, how long have you been running it? Instagram's great for existing followers but Google searches are where new customers find you for the first time. I put together something for you already, want to take a look?"
+- They say they don't need a website: be curious not pushy. "Totally makes sense. Can I ask though, where do most of your new customers come from? Just curious."
+- They already have a website: show interest. "Oh great, what's the URL? I'd love to take a look." After seeing it: "Looks solid honestly. One thing I noticed is it's not really ranking on Google or showing up when people ask ChatGPT for recommendations nearby. That's actually where a lot of new business comes from in 2026. I can fix that for you, want to see what it would look like?"
+- They have a website being built: "Oh cool, how far along are they? Just asking because I already have one ready if you ever need a backup option."
+- They ask how much: "So the investment is $300, normally $500 but I want to make it easy for you. Nothing upfront, you Zelle me when you're happy with it, around the 80% mark. Basically zero risk on your end."
+- They say ok or want to move forward: "That's awesome, really excited to work on this for you. What's the best email to send everything over to?"
+- They ask what's included: "Full custom website, looks great on mobile, set up to rank on Google, and optimized for AI search so you show up when people ask ChatGPT or Gemini for a recommendation in your area. I also handle the domain and transfer it to you after. You own everything."
+- They say not interested or stop: be warm and respectful. "No worries at all, I appreciate you taking the time to respond. Good luck with everything."
+Key framing: build a real connection, make them feel understood, zero pressure, they own everything."""
+    }
+}
+
+
+def claude_reply(lead: dict, conversation: list, api_key: str) -> str:
+    """Generate a smart sales reply using the lead's assigned agent persona."""
+    name     = lead.get("name", "this business")
+    category = lead.get("category", "local business")
+    city     = (lead.get("location") or "").split(",")[0].strip()
+    _cfg = load_config()
+    _base = (_cfg.get("base_url") or "https://getezseo.com").rstrip("/")
+    preview_url = f"{_base}{lead.get('preview_url','')}" if lead.get("preview_url") else None
+    agent = AGENTS.get(lead.get("agent_id", 1), AGENTS[1])
+
+    system = f"""You are {agent['name']}, a web designer texting local business owners. You built them a free website preview and you are following up.
+
+Business you are texting: {name} ({category} in {city})
+{"Preview already built: " + preview_url if preview_url else "You have not built a preview yet but can offer to."}
+
+{agent['system']}
+{"Preview URL to share: " + preview_url if preview_url else ""}"""
 
     messages = []
     for msg in conversation[-10:]:
@@ -1952,6 +1996,32 @@ async def get_stats():
     sms_sent   = conn.execute("SELECT COALESCE(SUM(sms_sent),0) FROM leads").fetchone()[0]
     conn.close()
     return {"total": total, "by_status": by_status, "revenue": revenue, "deals": deals, "avg_deal": avg_deal, "this_month": this_month, "by_category": by_cat, "by_location": by_loc, "sms_sent": sms_sent}
+
+
+@app.get("/api/leaderboard")
+async def get_leaderboard():
+    conn = get_db()
+    week_start = (datetime.utcnow() - timedelta(days=datetime.utcnow().weekday())).strftime("%Y-%m-%d")
+    result = {}
+    for agent_id, agent in AGENTS.items():
+        leads_count = conn.execute("SELECT COUNT(*) FROM leads WHERE agent_id=?", (agent_id,)).fetchone()[0]
+        replies     = conn.execute("SELECT COUNT(DISTINCT lead_id) FROM sms_log WHERE direction='inbound' AND lead_id IN (SELECT id FROM leads WHERE agent_id=?)", (agent_id,)).fetchone()[0]
+        emails      = conn.execute("SELECT COUNT(*) FROM leads WHERE agent_id=? AND status='closing'", (agent_id,)).fetchone()[0]
+        closed      = conn.execute("SELECT COUNT(*) FROM leads WHERE agent_id=? AND status='closed'", (agent_id,)).fetchone()[0]
+        revenue     = conn.execute("SELECT COALESCE(SUM(d.amount),0) FROM deals d JOIN leads l ON d.lead_id=l.id WHERE l.agent_id=? AND d.date>=?", (agent_id, week_start)).fetchone()[0]
+        week_closes = conn.execute("SELECT COUNT(*) FROM leads WHERE agent_id=? AND status='closed'", (agent_id,)).fetchone()[0]
+        result[agent["name"]] = {
+            "agent_id": agent_id,
+            "leads": leads_count,
+            "replies": replies,
+            "emails_collected": emails,
+            "closed_total": closed,
+            "week_revenue": revenue,
+            "week_closes": week_closes,
+            "conversion_rate": round(closed / leads_count * 100, 1) if leads_count else 0
+        }
+    conn.close()
+    return result
 
 
 @app.get("/api/deals")

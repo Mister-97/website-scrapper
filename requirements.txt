@@ -1,5 +1,6 @@
 fastapi
 uvicorn
 playwright==1.60.0
+playwright-stealth
 python-multipart
 requests

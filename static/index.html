@@ -539,6 +539,10 @@
       <p class="text-gray-600 text-sm" x-text="`${totalLeads} businesses`"></p>
     </div>
     <div class="flex gap-2">
+      <button @click="showAddLead=true" class="btn-primary flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Add Lead
+      </button>
       <button @click="exportCSV()" class="btn-ghost flex items-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         Export CSV
@@ -907,6 +911,24 @@
   </div>
 </div>
 
+<!-- ADD LEAD MODAL -->
+<div x-show="showAddLead" x-cloak class="modal-bg" @click.self="showAddLead=false">
+  <div class="modal">
+    <h2 class="font-bold text-lg mb-4">Add Lead Manually</h2>
+    <div class="flex flex-col gap-3">
+      <input x-model="newLead.name" placeholder="Business name *" class="input text-sm">
+      <input x-model="newLead.phone" placeholder="Phone number *" class="input text-sm">
+      <input x-model="newLead.address" placeholder="Address (optional)" class="input text-sm">
+      <input x-model="newLead.category" placeholder="Category (optional)" class="input text-sm">
+      <input x-model="newLead.location" placeholder="City (optional)" class="input text-sm">
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button @click="saveNewLead()" class="btn-primary flex-1 py-2.5">Add Lead</button>
+      <button @click="showAddLead=false" class="btn-ghost flex-1 py-2.5">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- DEAL MODAL -->
 <div x-show="showDealModal" x-cloak class="modal-bg" @click.self="showDealModal=false">
   <div class="modal">
@@ -1012,6 +1034,8 @@ function app() {
     bulkStatusVal: '',
     scraping: false,
     scrapeLog: [],
+    showAddLead: false,
+    newLead: { name:'', phone:'', address:'', category:'', location:'' },
     leadSearch: '',
     leadStatus: 'all',
     page: 1,
@@ -1466,6 +1490,19 @@ function app() {
         }
       } catch(e) { toast('Sync error: ' + e.message); }
       this.syncingReplies = false;
+    },
+
+    async saveNewLead() {
+      if (!this.newLead.name.trim() || !this.newLead.phone.trim()) { toast('Name and phone are required'); return; }
+      const r = await fetch('/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.newLead) });
+      const d = await r.json();
+      if (d.ok) {
+        this.leads.unshift(d.lead);
+        this.showAddLead = false;
+        this.newLead = { name:'', phone:'', address:'', category:'', location:'' };
+        toast('Lead added');
+        await this.loadStats();
+      } else { toast('Error: ' + d.error); }
     },
 
     openNotes(lead) { this.editLead = lead; this.editNotes = lead.notes || ''; this.notesModal = true; },

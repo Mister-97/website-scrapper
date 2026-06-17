@@ -115,7 +115,8 @@
 <main class="ml-56 flex-1 min-h-screen">
 
 <!-- MESSAGES -->
-<div x-show="tab==='messages'" x-cloak style="display:flex;height:100vh;overflow:hidden;">
+<div x-show="tab==='messages'" x-cloak>
+<div style="display:flex;height:100vh;overflow:hidden;">
 
   <!-- Conversation list -->
   <div style="width:300px;min-width:300px;border-right:1px solid #e5e7eb;background:white;display:flex;flex-direction:column;height:100vh;">
@@ -138,6 +139,7 @@
             <div style="display:flex;align-items:center;gap:4px;margin-top:1px;">
               <span :class="'status-badge s-'+lead.status" style="font-size:9px;padding:1px 6px;" x-text="lead.status"></span>
               <span style="font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="lead.category"></span>
+              <span :style="lead.agent_id===2 ? 'font-size:9px;font-weight:700;color:#10b981;margin-left:auto;flex-shrink:0;' : 'font-size:9px;font-weight:700;color:#6366f1;margin-left:auto;flex-shrink:0;'" x-text="lead.agent_id===2 ? 'Andrew' : 'Wyatt'"></span>
             </div>
           </div>
           <div x-show="['replied','claimed','closing'].includes(lead.status)" style="width:8px;height:8px;min-width:8px;border-radius:50%;background:#6366f1;"></div>
@@ -167,6 +169,7 @@
             <div style="font-size:12px;color:#6b7280;" x-text="msgActiveLead.phone"></div>
           </div>
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+            <span :style="msgActiveLead.agent_id===2 ? 'font-size:12px;font-weight:700;color:#10b981;' : 'font-size:12px;font-weight:700;color:#6366f1;'" x-text="msgActiveLead.agent_id===2 ? 'Andrew' : 'Wyatt'"></span>
             <span :class="'status-badge s-' + msgActiveLead.status" x-text="msgActiveLead.status"></span>
           </div>
         </div>
@@ -209,6 +212,7 @@
       </div>
     </template>
   </div>
+</div>
 </div>
 
 <!-- TEAM LEADERBOARD -->

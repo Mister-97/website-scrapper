@@ -256,9 +256,8 @@
               style="flex:1;background:#f3f4f6;border:none;border-radius:20px;padding:10px 16px;font-size:14px;color:#111;outline:none;resize:none;max-height:120px;"
               @input="$el.style.height='auto';$el.style.height=$el.scrollHeight+'px'"></textarea>
             <button @click="sendMsgReply()" :disabled="!threadReply.trim() || threadSending"
-              style="width:40px;height:40px;border-radius:50%;background:#6366f1;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:1;"
-              :style="(!threadReply.trim() || threadSending) ? 'opacity:0.4;cursor:not-allowed;background:#6366f1;width:40px;height:40px;border-radius:50%;border:none;' : 'background:#6366f1;width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;'">
-              <svg style="width:18px;height:18px;color:white;" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+              :style="{opacity: (!threadReply.trim() || threadSending) ? '0.4' : '1', cursor: (!threadReply.trim() || threadSending) ? 'not-allowed' : 'pointer', background:'#6366f1', width:'52px', height:'40px', borderRadius:'12px', border:'none', color:'white', fontWeight:'700', fontSize:'13px', flexShrink:'0'}">
+              Send
             </button>
           </div>
           <div x-show="threadSendResult" style="font-size:12px;margin-top:8px;text-align:center;" :style="threadSendResult?.ok ? 'color:#16a34a' : 'color:#dc2626'" x-text="threadSendResult?.ok ? 'Sent' : threadSendResult?.error"></div>

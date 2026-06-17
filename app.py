@@ -252,9 +252,14 @@ def classify_reply(text: str, current_status: str = "") -> str:
             return "no_website"
     for p in yes_patterns:
         if re.search(p, t):
-            # If we already sent a preview, "yes" means they want it - not that they have a site
-            if current_status in ("preview_sent", "building"):
+            # "yes" to "do you have a website?" means they have one
+            # "yes" after seeing a preview means they want it
+            if current_status in ("preview_sent", "building", "closing"):
                 return "claim"
+            # Generic "yes" on first contact is ambiguous -- treat as "has website" only if
+            # they also mention something that suggests it (otherwise treat as "other" so Claude handles it)
+            if t in ("yes", "yeah", "yep", "yup"):
+                return "other"
             return "has_website"
     return "other"
 
@@ -1875,8 +1880,16 @@ async def sequence_process():
     return {"ok": True, "processed": sent}
 
 
-TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
-STOP_WORDS  = {"stop", "stopall", "unsubscribe", "cancel", "end", "quit", "revoke", "optout", "opt out"}
+TWIML_EMPTY  = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+FORWARD_TO   = "+17083787367"   # Josh's number -- all calls forward here
+STOP_WORDS   = {"stop", "stopall", "unsubscribe", "cancel", "end", "quit", "revoke", "optout", "opt out"}
+
+
+@app.post("/api/webhooks/voice")
+async def voice_webhook(request: Request):
+    """Forward all inbound calls to Josh's number."""
+    twiml = f'<?xml version="1.0" encoding="UTF-8"?><Response><Dial>{FORWARD_TO}</Dial></Response>'
+    return HTMLResponse(content=twiml, media_type="application/xml")
 
 
 @app.post("/api/webhooks/sms/reply")
@@ -1932,6 +1945,21 @@ async def sms_reply_webhook(request: Request):
                 pass
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
+    cfg = load_config()
+    has_twilio = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
+
+    # Intake flow: check FIRST before classify_reply so intake messages aren't misrouted
+    if matched.get("intake_step", 0) > 0 and matched.get("intake_step", 0) < 4:
+        conn = get_db()
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                     (matched["id"], from_, body, "received", "inbound"))
+        conn.commit()
+        conn.close()
+        if has_twilio:
+            await asyncio.sleep(random.uniform(7, 12))
+            handle_intake_reply(matched, body, cfg)
+        return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
+
     intent = classify_reply(body, current_status=matched.get("status", ""))
 
     # Determine new status
@@ -1950,20 +1978,6 @@ async def sms_reply_webhook(request: Request):
                  (matched["id"], from_, body, "received", "inbound"))
     conn.commit()
     conn.close()
-
-    cfg = load_config()
-    has_twilio = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
-
-    # Intake flow: if this lead is mid-intake, route their reply to the intake handler
-    if matched.get("intake_step", 0) > 0 and matched.get("intake_step", 0) < 4:
-        conn = get_db()
-        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
-                     (matched["id"], from_, body, "received", "inbound"))
-        conn.commit()
-        conn.close()
-        if has_twilio:
-            handle_intake_reply(matched, body, cfg)
-        return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
     # Only notify for hot signals - Wyatt/Andrew handle everything else silently
     t_lower = body.lower()
@@ -1993,8 +2007,9 @@ async def sms_reply_webhook(request: Request):
             reply_msg = (
                 f"Perfect, I actually already built one for you. "
                 f"Here is your free preview site: {preview_link}\n\n"
-                f"Reply WANT or CLAIM if you want to keep it and I will get it live today."
+                f"Reply CLAIM if you want to keep it and I will get it live today."
             )
+            await asyncio.sleep(random.uniform(7, 12))
             send_twilio_sms(
                 cfg["twilio_account_sid"], cfg["twilio_auth_token"],
                 cfg["twilio_from_number"], from_, reply_msg
@@ -2009,6 +2024,7 @@ async def sms_reply_webhook(request: Request):
 
     elif intent == "claim" and has_twilio:
         try:
+            await asyncio.sleep(random.uniform(7, 12))
             start_intake(matched, cfg)
         except Exception as e:
             print(f"[intake] Error starting intake: {e}", flush=True)
@@ -2035,8 +2051,8 @@ async def sms_reply_webhook(request: Request):
         if not reply_msg:
             if intent == "has_website":
                 reply_msg = (
-                    f"Got it, good to know. One thing a lot of businesses are missing in 2026 is AI search visibility - "
-                    f"when someone asks ChatGPT or Google AI for a {matched.get('category','business')} in your area your site needs to be optimized for that. "
+                    f"Got it, good to know. One thing a lot of businesses are missing in 2026 is AI search visibility. "
+                    f"When someone asks ChatGPT or Google AI for a {matched.get('category','business')} in your area your site needs to be optimized for that. "
                     f"I already built a free preview. Want me to send it over?"
                 )
             else:
@@ -2046,6 +2062,7 @@ async def sms_reply_webhook(request: Request):
                 )
 
         try:
+            await asyncio.sleep(random.uniform(7, 12))
             send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], from_, reply_msg)
             conn = get_db()
             conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",

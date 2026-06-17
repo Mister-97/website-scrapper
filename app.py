@@ -49,7 +49,7 @@ _ENV_KEYS = {
     "base_url":           "BASE_URL",
 }
 
-CANONICAL_BASE_URL = "https://admin.getezseo.com"
+CANONICAL_BASE_URL = "https://getezseo.com"
 
 def load_config():
     cfg: dict = {}

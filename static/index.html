@@ -1463,7 +1463,10 @@ function app() {
       if (this.tab === 'leads') await this.loadLeads();
       if (this.tab === 'messages') {
         await this.loadMessages();
-        if (this.msgActiveLead) await this.selectMsgLead(this.msgActiveLead);
+        if (this.msgActiveLead) {
+          const r = await fetch('/api/leads/' + this.msgActiveLead.id + '/messages');
+          this.msgMessages = await r.json();
+        }
       }
       if (this.tab === 'pipeline') await this.loadPipeline();
       if (this.replyCount > prevReply) {

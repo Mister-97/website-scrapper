@@ -2093,6 +2093,25 @@ async def test_notify():
         return JSONResponse({"ok": False, "error": str(e)})
 
 
+@app.post("/api/test-day0")
+async def test_day0():
+    """Send a real Day 0 message to notify_number so Josh can preview what leads receive."""
+    cfg = load_config()
+    account_sid   = cfg.get("twilio_account_sid")
+    auth_token    = cfg.get("twilio_auth_token")
+    from_number   = cfg.get("twilio_from_number")
+    notify_number = cfg.get("notify_number")
+    if not all([account_sid, auth_token, from_number, notify_number]):
+        return JSONResponse({"ok": False, "error": "Missing Twilio config or notify_number"})
+    try:
+        seq = get_sequence()
+        msg = seq[0].replace("{name}", "Magic Fresh").replace("{category}", "cleaning service").replace("{city}", "Dallas")
+        sid = send_twilio_sms(account_sid, auth_token, from_number, notify_number, msg)
+        return {"ok": True, "sid": sid, "to": notify_number, "message": msg}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
 @app.post("/api/sync-twilio-replies")
 async def sync_twilio_replies():
     """Pull inbound messages from Twilio API and backfill sms_log for any that are missing."""

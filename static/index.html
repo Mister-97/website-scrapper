@@ -771,8 +771,12 @@
         <p class="text-xs text-gray-500 mt-1">200 = ~100 per agent. Twilio charges $0.008/msg.</p>
       </div>
     </div>
-    <button @click="saveSettings()" class="btn-primary px-6 py-2.5">Save Settings</button>
-    <div x-show="settingsSaved" class="text-green-400 text-sm">Saved.</div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <button @click="saveSettings()" class="btn-primary px-6 py-2.5">Save Settings</button>
+      <button @click="testDay0()" class="btn-ghost px-4 py-2.5 text-sm">Send Me Day 0 Text</button>
+      <div x-show="settingsSaved" class="text-green-400 text-sm">Saved.</div>
+      <div x-show="day0Result" class="text-sm" :class="day0Result?.ok ? 'text-green-500' : 'text-red-500'" x-text="day0Result?.ok ? 'Day 0 sent to your number.' : day0Result?.error"></div>
+    </div>
   </div>
 
   <div class="card p-6 mt-4">
@@ -1022,6 +1026,7 @@ function app() {
     smsResult: null,
     settings: { twilio_account_sid: '', twilio_auth_token: '', twilio_from_number: '', notify_number: '', base_url: '', auto_sequence: false, daily_limit: 200 },
     settingsSaved: false,
+    day0Result: null,
     seqMessages: ['','','',''],
     seqSaved: false,
     catChart: null,
@@ -1563,6 +1568,13 @@ function app() {
       await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.settings) });
       this.settingsSaved = true;
       setTimeout(() => this.settingsSaved = false, 2000);
+    },
+
+    async testDay0() {
+      this.day0Result = null;
+      const r = await fetch('/api/test-day0', { method: 'POST' });
+      this.day0Result = await r.json();
+      setTimeout(() => this.day0Result = null, 6000);
     },
   }
 }

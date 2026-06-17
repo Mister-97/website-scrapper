@@ -46,12 +46,35 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
   .glow { box-shadow: 0 4px 24px rgba(99,102,241,0.1); }
+
+  /* Mobile nav bar */
+  .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; z-index: 100; height: 62px; justify-content: space-around; align-items: center; padding: 0 4px; }
+  .mobile-nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; padding: 8px 4px; cursor: pointer; border-radius: 10px; transition: background .15s; -webkit-tap-highlight-color: transparent; }
+  .mobile-nav-item svg { width: 22px; height: 22px; }
+  .mobile-nav-item span { font-size: 10px; font-weight: 600; }
+  .mobile-nav-active { color: #6366f1; }
+  .mobile-nav-inactive { color: #9ca3af; }
+  .mobile-back { display: none; }
+
+  @media (max-width: 767px) {
+    .sidebar { display: none !important; }
+    .main-content { margin-left: 0 !important; }
+    .mobile-nav { display: flex !important; }
+    body { padding-bottom: 66px; }
+    .p-8 { padding: 16px !important; }
+    .mobile-back { display: flex !important; }
+    /* Messages: list vs thread toggle */
+    .msg-list { width: 100% !important; min-width: unset !important; }
+    .msg-thread { display: none !important; }
+    .mobile-in-thread .msg-list { display: none !important; }
+    .mobile-in-thread .msg-thread { display: flex !important; }
+  }
 </style>
 </head>
 <body class="text-gray-800 min-h-screen flex" x-data="app()" x-init="init()">
 
 <!-- Sidebar -->
-<aside class="w-56 min-h-screen border-r border-gray-200 bg-white flex flex-col px-3 py-5 fixed left-0 top-0">
+<aside class="sidebar w-56 min-h-screen border-r border-gray-200 bg-white flex flex-col px-3 py-5 fixed left-0 top-0">
   <div class="flex items-center justify-between px-3 mb-8">
     <div class="flex items-center gap-2.5">
       <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-sm font-black text-white">EZ</div>
@@ -73,16 +96,16 @@
       Scraper
       <span x-show="scraping" class="ml-auto w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
     </div>
-    <div @click="tab='leads'; loadLeads(); replyCount=0;" :class="tab==='leads' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+    <div @click="tab='leads'; loadLeads(); seenReplyCount=replyCount;" :class="tab==='leads' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
       Leads
       <span x-show="stats.total > 0" class="ml-auto text-xs font-bold text-indigo-400" x-text="stats.total"></span>
-      <span x-show="replyCount > 0" class="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" :class="stats.total > 0 ? '-ml-1' : 'ml-auto'"></span>
+      <span x-show="replyCount > seenReplyCount" class="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" :class="stats.total > 0 ? '-ml-1' : 'ml-auto'"></span>
     </div>
-    <div @click="tab='messages'; loadMessages(); replyCount=0;" :class="tab==='messages' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
+    <div @click="tab='messages'; loadMessages(); seenReplyCount=replyCount;" :class="tab==='messages' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
       Messages
-      <span x-show="replyCount > 0" class="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+      <span x-show="replyCount > seenReplyCount" class="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
     </div>
     <div @click="tab='team'; loadLeaderboard()" :class="tab==='team' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
@@ -108,14 +131,14 @@
 </aside>
 
 <!-- Main -->
-<main class="ml-56 flex-1 min-h-screen">
+<main class="main-content ml-56 flex-1 min-h-screen">
 
 <!-- MESSAGES -->
 <div x-show="tab==='messages'" x-cloak>
-<div style="display:flex;height:100vh;overflow:hidden;">
+<div style="display:flex;height:100vh;overflow:hidden;" :class="mobileThread ? 'mobile-in-thread' : ''">
 
   <!-- Conversation list -->
-  <div style="width:300px;min-width:300px;border-right:1px solid #e5e7eb;background:white;display:flex;flex-direction:column;height:100vh;">
+  <div class="msg-list" style="width:300px;min-width:300px;border-right:1px solid #e5e7eb;background:white;display:flex;flex-direction:column;height:100vh;">
     <div style="padding:14px 14px 10px;border-bottom:1px solid #e5e7eb;">
       <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:10px;">Messages</div>
       <input x-model="msgSearch" placeholder="Search..." style="width:100%;background:#f3f4f6;border:none;border-radius:10px;padding:8px 12px;font-size:13px;color:#111;outline:none;margin-bottom:10px;">
@@ -156,9 +179,9 @@
   </div>
 
   <!-- Thread panel -->
-  <div style="flex:1;display:flex;flex-direction:column;height:100vh;background:#f5f6fa;">
+  <div class="msg-thread" style="flex:1;display:flex;flex-direction:column;height:100vh;background:#f5f6fa;position:relative;">
     <!-- Empty state -->
-    <div x-show="!msgActiveLead" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#9ca3af;">
+    <div x-show="!msgActiveLead" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#9ca3af;pointer-events:none;">
       <svg style="width:48px;height:48px;opacity:0.3;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
       <span style="font-size:14px;">Select a conversation</span>
     </div>
@@ -168,6 +191,10 @@
       <div style="display:flex;flex-direction:column;height:100%;">
         <!-- Header -->
         <div style="padding:16px 20px;background:white;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;">
+          <!-- Mobile back button -->
+          <button @click="mobileThread=false; msgActiveLead=null" class="mobile-back" style="align-items:center;gap:4px;color:#6366f1;background:none;border:none;cursor:pointer;padding:0;font-size:13px;font-weight:600;flex-shrink:0;">
+            <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+          </button>
           <div :style="'width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:white;background:' + avatarColor(msgActiveLead.name)">
             <span x-text="msgActiveLead.name.charAt(0).toUpperCase()"></span>
           </div>
@@ -249,7 +276,7 @@
     <p class="text-gray-500 text-sm">Wyatt vs Andrew - weekly leaderboard resets every Monday.</p>
   </div>
 
-  <div class="grid grid-cols-2 gap-6 mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
     <template x-for="(agent, name) in leaderboard" :key="name">
       <div class="card p-6 relative overflow-hidden">
         <!-- Crown for leader -->
@@ -382,7 +409,7 @@
     <p class="text-gray-500 text-sm">Your lead generation pipeline at a glance.</p>
   </div>
 
-  <div class="grid grid-cols-4 gap-4 mb-6">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="card p-5 glow">
       <div class="text-gray-600 text-xs font-semibold uppercase tracking-wider mb-3">Total Leads</div>
       <div class="text-4xl font-black mb-1" x-text="(stats.total || 0).toLocaleString()"></div>
@@ -419,7 +446,7 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div class="card p-5">
       <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">By Industry</div>
       <canvas id="catChart" height="180"></canvas>
@@ -438,7 +465,7 @@
     <p class="text-gray-600 text-sm">Find businesses with no website across any industry and location.</p>
   </div>
 
-  <div class="grid grid-cols-2 gap-5 mb-5">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
     <div class="card p-5">
       <div class="flex items-center justify-between mb-4">
         <div class="text-xs font-semibold uppercase tracking-wider text-gray-500">Industries</div>
@@ -538,7 +565,8 @@
   </div>
 
   <div class="card overflow-hidden">
-    <table class="w-full">
+    <div class="overflow-x-auto">
+    <table class="w-full" style="min-width:700px;">
       <thead>
         <tr class="border-b border-gray-900">
           <th class="text-left px-4 py-3 w-8">
@@ -624,6 +652,7 @@
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
   <!-- Pagination -->
   <div x-show="totalLeads > pageSize" class="flex items-center justify-between mt-4">
@@ -945,6 +974,8 @@ function app() {
     selectedIds: [],
     allPagesSelected: false,
     replyCount: 0,
+    seenReplyCount: 0,
+    mobileThread: false,
     bulkStatusVal: '',
     scraping: false,
     scrapeLog: [],
@@ -1208,6 +1239,7 @@ function app() {
 
     async selectMsgLead(lead) {
       this.msgActiveLead = lead;
+      this.mobileThread = true;
       this.threadReply = '';
       this.threadSendResult = null;
       const r = await fetch('/api/leads/' + lead.id + '/messages');
@@ -1535,5 +1567,31 @@ function app() {
   }
 }
 </script>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav">
+  <div @click="tab='dashboard'; loadStats().then(()=>renderCharts())" :class="tab==='dashboard' ? 'mobile-nav-item mobile-nav-active' : 'mobile-nav-item mobile-nav-inactive'">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+    <span>Overview</span>
+  </div>
+  <div @click="tab='leads'; loadLeads(); seenReplyCount=replyCount;" :class="tab==='leads' ? 'mobile-nav-item mobile-nav-active' : 'mobile-nav-item mobile-nav-inactive'" style="position:relative;">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
+    <span>Leads</span>
+    <span x-show="replyCount > seenReplyCount" style="position:absolute;top:6px;right:12px;width:7px;height:7px;border-radius:50%;background:#ef4444;"></span>
+  </div>
+  <div @click="tab='messages'; loadMessages(); seenReplyCount=replyCount;" :class="tab==='messages' ? 'mobile-nav-item mobile-nav-active' : 'mobile-nav-item mobile-nav-inactive'" style="position:relative;">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+    <span>Messages</span>
+    <span x-show="replyCount > seenReplyCount" style="position:absolute;top:6px;right:12px;width:7px;height:7px;border-radius:50%;background:#ef4444;"></span>
+  </div>
+  <div @click="tab='pipeline'; loadPipeline()" :class="tab==='pipeline' ? 'mobile-nav-item mobile-nav-active' : 'mobile-nav-item mobile-nav-inactive'">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+    <span>Pipeline</span>
+  </div>
+  <div @click="tab='settings'; loadSettings()" :class="tab==='settings' ? 'mobile-nav-item mobile-nav-active' : 'mobile-nav-item mobile-nav-inactive'">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    <span>Settings</span>
+  </div>
+</nav>
 </body>
 </html>

@@ -1322,11 +1322,56 @@ async def get_settings():
 @app.post("/api/settings")
 async def save_settings(request: Request):
     body = await request.json()
-    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url"}
+    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key"}
     updates = {k: v for k, v in body.items() if k in allowed and v and v != "***"}
     save_config(updates)
     return {"ok": True}
 
+
+
+def claude_reply(lead: dict, conversation: list, api_key: str) -> str:
+    """Generate a smart sales reply using Claude given the conversation history."""
+    import base64
+    name     = lead.get("name", "this business")
+    category = lead.get("category", "local business")
+    city     = (lead.get("location") or "").split(",")[0].strip()
+    preview_url = f"https://website-scrapper-7m42.onrender.com{lead.get('preview_url','')}" if lead.get("preview_url") else None
+
+    system = f"""You are Josh, a web designer who builds free website previews for local businesses and then pitches them on going live.
+
+Business you are texting: {name} ({category} in {city})
+{"Preview already built: " + preview_url if preview_url else "You have not built a preview yet but can offer to."}
+
+Your goal: keep the conversation moving toward them agreeing to get a website. Be conversational, brief (1-3 sentences max), no em dashes, no bullet points, no formal language. Sound like a real person texting.
+
+Pricing if asked: normally $500, you can do $300 for them. No upfront payment, Zelle when 80% done.
+You also offer AI visibility (showing up on ChatGPT, Gemini, Google AI) as part of the package.
+If they have a Google Business profile, mention a website pairs with it to rank higher.
+Never be pushy. If they say stop or not interested, be respectful and exit."""
+
+    messages = []
+    for msg in conversation[-10:]:
+        role = "assistant" if msg.get("direction") == "outbound" else "user"
+        messages.append({"role": role, "content": msg.get("message", "")})
+
+    payload = json.dumps({
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 200,
+        "system": system,
+        "messages": messages
+    }).encode()
+
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+        }
+    )
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read())["content"][0]["text"].strip()
 
 
 def send_ntfy(title: str, message: str, priority: str = "default"):
@@ -1589,59 +1634,38 @@ async def sms_reply_webhook(request: Request):
         except Exception:
             pass
 
-    elif intent == "has_website" and has_twilio:
-        # They have something (website, Instagram, Facebook) - pitch AI visibility
-        t = body.lower()
-        if any(w in t for w in ["instagram", "facebook", "tiktok", "social"]):
-            reply_msg = (
-                f"That is a great start. One thing social media cannot do though is show up when someone Googles "
-                f"\"{matched.get('category','your business')} near me\" - that is where a real site makes the difference. "
-                f"I already built you a free preview, want me to send it over?"
-            )
-        else:
-            reply_msg = (
-                f"Got it, good to know. One thing a lot of businesses are missing in 2026 is AI search visibility, "
-                f"when someone asks ChatGPT or Google AI to recommend a {matched.get('category','business')} in your area, "
-                f"your site needs to be optimized for that. We handle it. Want to see a free preview of what that looks like?"
-            )
-        try:
-            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], from_, reply_msg)
-            conn = get_db()
-            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
-                         (matched["id"], from_, reply_msg, "sent", "outbound"))
-            conn.commit()
-            conn.close()
-        except Exception:
-            pass
+    elif intent in ("has_website", "other") and has_twilio:
+        # Use Claude to generate a smart, context-aware reply
+        api_key = cfg.get("anthropic_api_key", "")
+        reply_msg = None
+        if api_key:
+            try:
+                conn = get_db()
+                rows = conn.execute(
+                    "SELECT message, direction FROM sms_log WHERE lead_id=? ORDER BY sent_at ASC",
+                    (matched["id"],)
+                ).fetchall()
+                conn.close()
+                conversation = [{"message": r[0], "direction": r[1]} for r in rows]
+                reply_msg = claude_reply(matched, conversation, api_key)
+            except Exception as e:
+                print(f"[CLAUDE ERROR] {e}", flush=True)
+                reply_msg = None
 
-    elif intent == "other" and has_twilio:
-        # Catch-all: unknown reply - respond based on what they likely said
-        t = body.lower()
-        if any(w in t for w in ["who", "who's this", "who is this", "who are you"]):
-            reply_msg = (
-                f"Hey, this is Josh. I build free website previews for local businesses. "
-                f"I searched for {matched['name']} online and could not find a site, so I already built you one. "
-                f"Want me to send the link?"
-            )
-        elif any(w in t for w in ["not interested", "don't need", "dont need", "no thanks", "no thank", "stop", "remove"]):
-            reply_msg = (
-                f"Totally fair. I will leave you alone. If you ever change your mind the preview will be here. Good luck!"
-            )
-        elif any(w in t for w in ["how much", "cost", "price", "charge", "fee", "pay"]):
-            reply_msg = (
-                f"The preview is completely free. If you decide to go live with it we talk pricing then, "
-                f"but there is zero cost to look. Want me to send the link?"
-            )
-        elif any(w in t for w in ["busy", "call", "phone", "later", "not now"]):
-            reply_msg = (
-                f"No worries at all, I will keep it short. I built a free website preview for {matched['name']}, "
-                f"just send a reply whenever you want the link. No pressure."
-            )
-        else:
-            reply_msg = (
-                f"Appreciate the reply. Quick thing - I already built a free website preview for {matched['name']}. "
-                f"Want me to send it over? Takes 2 seconds to look at."
-            )
+        # Fallback if Claude fails or no key
+        if not reply_msg:
+            if intent == "has_website":
+                reply_msg = (
+                    f"Got it, good to know. One thing a lot of businesses are missing in 2026 is AI search visibility - "
+                    f"when someone asks ChatGPT or Google AI for a {matched.get('category','business')} in your area your site needs to be optimized for that. "
+                    f"I already built a free preview. Want me to send it over?"
+                )
+            else:
+                reply_msg = (
+                    f"Appreciate the reply. I already built a free website preview for {matched['name']}. "
+                    f"Want me to send it over? Takes 2 seconds to look at."
+                )
+
         try:
             send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], from_, reply_msg)
             conn = get_db()

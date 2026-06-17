@@ -288,9 +288,9 @@ async def sequence_loop():
                     cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
                     all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
                     locs = [random.choice(all_locs)]
-                print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories, starting in {locs[0]}, min 100 leads")
-                send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. Starting in {locs[0]}. Will keep going until 100 numbers found.", priority="default")
-                asyncio.create_task(run_scraper(cats, locs, min_leads=100, extra_locs=all_locs))
+                print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories, starting in {locs[0]}, min 200 leads (100 each)")
+                send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. Starting in {locs[0]}. Will keep going until 200 numbers found (100 each).", priority="default")
+                asyncio.create_task(run_scraper(cats, locs, min_leads=200, extra_locs=all_locs))
         except Exception as e:
             print(f"[auto-scrape] error: {e}")
         try:
@@ -531,9 +531,8 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                                     pass
 
                                 seen_names.add((name, location))
+                                agent_id = 1 if total_found % 2 == 0 else 2
                                 conn = get_db()
-                                total = conn.execute("SELECT COUNT(*) FROM leads").fetchone()[0]
-                                agent_id = 1 if total % 2 == 0 else 2
                                 conn.execute(
                                     "INSERT INTO leads (name, phone, address, category, location, maps_url, logo_url, agent_id) VALUES (?,?,?,?,?,?,?,?)",
                                     (name, phone, address, category, location, page.url, logo_url, agent_id)
@@ -542,7 +541,8 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                                 conn.close()
                                 found += 1
                                 loc_found += 1
-                                log(f"  + {name} | {phone}")
+                                total_found += 1
+                                log(f"  + {name} | {phone} (agent {'Wyatt' if agent_id == 1 else 'Andrew'})")
                             except Exception:
                                 continue
 
@@ -550,8 +550,6 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                     except Exception as e:
                         log(f"  Error: {e}")
                     await asyncio.sleep(0.5)
-
-                total_found += loc_found
 
                 if scraper_stop_requested:
                     break

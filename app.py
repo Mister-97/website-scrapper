@@ -1712,7 +1712,7 @@ async def sms_reply_webhook(request: Request):
     # Only notify for hot signals - Wyatt/Andrew handle everything else silently
     t_lower = body.lower()
     is_price_question = any(w in t_lower for w in ["how much", "cost", "price", "charge", "fee", "pay", "zelle"])
-    is_positive = any(w in t_lower for w in ["yes", "sure", "let's do", "lets do", "sounds good", "interested", "send it", "go ahead", "ok cool", "deal"])
+    is_positive = any(w in t_lower for w in ["let's do", "lets do", "sounds good", "send it", "go ahead", "ok cool", "i'm in", "im in", "sign me up", "let's go", "lets go", "i want it", "do it"])
 
     if intent == "claim":
         send_ntfy("HOT LEAD - CALL NOW", f"{matched['name']} wants their site live.\nCall: {from_}", priority="urgent")

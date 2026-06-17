@@ -238,7 +238,7 @@ async def lifespan(app: FastAPI):
     init_db()
     os.makedirs("static", exist_ok=True)
     os.makedirs(PREVIEWS_DIR, exist_ok=True)
-    app.mount("/previews", StaticFiles(directory=PREVIEWS_DIR), name="previews")
+    # previews served via route below for clean URLs (no .html)
     app.mount("/static", StaticFiles(directory="static"), name="static")
     task = asyncio.create_task(sequence_loop())
     print("[tip] To keep follow-ups running while your Mac is idle: caffeinate -i python app.py")
@@ -2156,6 +2156,17 @@ async def auth_logout():
     response = RedirectResponse("/login", status_code=302)
     response.delete_cookie(SESSION_COOKIE)
     return response
+
+
+@app.get("/previews/{slug}", response_class=HTMLResponse)
+async def serve_preview(slug: str):
+    slug = slug.replace(".html", "")
+    path = os.path.join(PREVIEWS_DIR, f"{slug}.html")
+    if not os.path.exists(path):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Preview not found")
+    with open(path) as f:
+        return f.read()
 
 
 @app.get("/home", response_class=HTMLResponse)

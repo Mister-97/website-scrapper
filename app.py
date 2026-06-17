@@ -271,22 +271,26 @@ async def sequence_loop():
     """Background loop: follow-ups every 60s, auto-scrape at 8am CST, 30-day re-engagement."""
     last_scrape_date = None
     last_sequence_notify_date = None
+    # Check immediately on startup before first sleep so a fresh deploy in the scrape window still fires
+    first_run = True
     while True:
-        await asyncio.sleep(60)
+        if not first_run:
+            await asyncio.sleep(60)
+        first_run = False
         try:
-            # Auto-scrape at 8am CST (14:00 UTC) using scrape queue if set
+            # Auto-scrape at 8am CST (14:00 UTC) -- 30-minute window so restarts/deploys don't miss it
             now_utc = datetime.utcnow()
             today = now_utc.date()
-            if now_utc.hour == 14 and now_utc.minute < 2 and last_scrape_date != today:
+            if now_utc.hour == 14 and now_utc.minute < 30 and last_scrape_date != today:
                 last_scrape_date = today
                 cfg = load_config()
                 queue = cfg.get("scrape_queue") or []
+                all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
                 if queue:
                     cats = list({q["category"] for q in queue})
                     locs = list({q["location"] for q in queue})
                 else:
                     cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
-                    all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
                     locs = [random.choice(all_locs)]
                 print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories, starting in {locs[0]}, min 200 leads (100 each)")
                 send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. Starting in {locs[0]}. Will keep going until 200 numbers found (100 each).", priority="default")
@@ -1333,6 +1337,26 @@ async def start_scrape(request: Request, background_tasks: BackgroundTasks):
 @app.get("/api/scrape/status")
 async def scrape_status():
     return {"running": scraper_running, "log": scraper_log[-50:]}
+
+
+@app.post("/api/scrape/trigger-daily")
+async def trigger_daily_scrape():
+    """Manually fire today's auto-scrape with the same logic as the 8am trigger."""
+    global scraper_running
+    if scraper_running:
+        return JSONResponse({"ok": False, "error": "Scraper already running"})
+    cfg = load_config()
+    queue = cfg.get("scrape_queue") or []
+    all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
+    if queue:
+        cats = list({q["category"] for q in queue})
+        locs = list({q["location"] for q in queue})
+    else:
+        cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
+        locs = [random.choice(all_locs)]
+    send_ntfy("Manual Scrape Triggered", f"Starting in {locs[0]}. Will keep going until 200 leads (100 each).", priority="default")
+    asyncio.create_task(run_scraper(cats, locs, min_leads=200, extra_locs=all_locs))
+    return JSONResponse({"ok": True, "starting_in": locs[0]})
 
 
 @app.post("/api/scrape/stop")

@@ -800,8 +800,10 @@
     <div class="flex items-center gap-3 flex-wrap">
       <button @click="saveSettings()" class="btn-primary px-6 py-2.5">Save Settings</button>
       <button @click="testDay0()" class="btn-ghost px-4 py-2.5 text-sm">Send Me Day 0 Text</button>
+      <button @click="triggerDailyScrape()" :disabled="scraping" class="btn-ghost px-4 py-2.5 text-sm" x-text="scraping ? 'Scraping...' : 'Run Daily Scrape Now'"></button>
       <div x-show="settingsSaved" class="text-green-400 text-sm">Saved.</div>
       <div x-show="day0Result" class="text-sm" :class="day0Result?.ok ? 'text-green-500' : 'text-red-500'" x-text="day0Result?.ok ? 'Day 0 sent to your number.' : day0Result?.error"></div>
+      <div x-show="triggerResult" class="text-sm" :class="triggerResult?.ok ? 'text-green-500' : 'text-red-500'" x-text="triggerResult?.ok ? 'Scrape started in ' + triggerResult.starting_in : triggerResult?.error"></div>
     </div>
   </div>
 
@@ -1054,6 +1056,7 @@ function app() {
     settings: { twilio_account_sid: '', twilio_auth_token: '', twilio_from_number: '', notify_number: '', base_url: '', auto_sequence: false, daily_limit: 200 },
     settingsSaved: false,
     day0Result: null,
+    triggerResult: null,
     seqMessages: ['','','',''],
     seqSaved: false,
     catChart: null,
@@ -1611,6 +1614,14 @@ function app() {
       await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.settings) });
       this.settingsSaved = true;
       setTimeout(() => this.settingsSaved = false, 2000);
+    },
+
+    async triggerDailyScrape() {
+      this.triggerResult = null;
+      const r = await fetch('/api/scrape/trigger-daily', { method: 'POST' });
+      this.triggerResult = await r.json();
+      if (this.triggerResult?.ok) this.scraping = true;
+      setTimeout(() => this.triggerResult = null, 6000);
     },
 
     async testDay0() {

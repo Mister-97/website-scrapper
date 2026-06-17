@@ -172,7 +172,7 @@
               <span :style="lead.agent_id===2 ? 'font-size:9px;font-weight:700;color:#10b981;margin-left:auto;flex-shrink:0;' : 'font-size:9px;font-weight:700;color:#6366f1;margin-left:auto;flex-shrink:0;'" x-text="lead.agent_id===2 ? 'Andrew' : 'Wyatt'"></span>
             </div>
           </div>
-          <div x-show="['replied','claimed','closing'].includes(lead.status)" style="width:8px;height:8px;min-width:8px;border-radius:50%;background:#6366f1;"></div>
+          <div x-show="['replied','claimed','closing'].includes(lead.status) && !viewedLeads.has(lead.id)" style="width:8px;height:8px;min-width:8px;border-radius:50%;background:#6366f1;"></div>
         </div>
       </template>
     </div>
@@ -1005,6 +1005,7 @@ function app() {
     allPagesSelected: false,
     replyCount: 0,
     seenReplyCount: 0,
+    viewedLeads: new Set(),
     mobileThread: false,
     bulkStatusVal: '',
     scraping: false,
@@ -1285,6 +1286,7 @@ function app() {
 
     async selectMsgLead(lead) {
       this.msgActiveLead = lead;
+      this.viewedLeads = new Set([...this.viewedLeads, lead.id]);
       this.mobileThread = true;
       this.threadReply = '';
       this.threadSendResult = null;

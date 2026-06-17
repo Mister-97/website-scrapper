@@ -178,7 +178,27 @@
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
             <span :style="msgActiveLead.agent_id===2 ? 'font-size:12px;font-weight:700;color:#10b981;' : 'font-size:12px;font-weight:700;color:#6366f1;'" x-text="msgActiveLead.agent_id===2 ? 'Andrew' : 'Wyatt'"></span>
             <span :class="'status-badge s-' + msgActiveLead.status" x-text="msgActiveLead.status"></span>
+            <a :href="'/api/preview/download/' + msgActiveLead.id" target="_blank"
+              style="font-size:11px;font-weight:700;color:#6366f1;background:#ede9fe;padding:3px 10px;border-radius:100px;text-decoration:none;white-space:nowrap;">
+              Download Preview
+            </a>
           </div>
+        </div>
+
+        <!-- Intake progress (shown when lead is mid-intake) -->
+        <div x-show="msgActiveLead.intake_step > 0"
+          style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;padding:10px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.06em;">Intake</span>
+          <template x-for="(item, i) in intakeFields" :key="i">
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span :style="item.done ? 'color:#15803d;' : 'color:#d1d5db;'" style="font-size:13px;">
+                <span x-show="item.done">&#10003;</span>
+                <span x-show="!item.done">&#9675;</span>
+              </span>
+              <span style="font-size:12px;color:#374151;font-weight:500;" x-text="item.label"></span>
+              <span x-show="item.value" style="font-size:12px;color:#15803d;font-weight:700;" x-text="item.value"></span>
+            </div>
+          </template>
         </div>
 
         <!-- Messages -->
@@ -1011,6 +1031,19 @@ function app() {
         leads = leads.filter(l => l.name.toLowerCase().includes(q) || (l.phone||'').includes(q));
       }
       return leads;
+    },
+
+    get intakeFields() {
+      const lead = this.msgActiveLead;
+      if (!lead) return [];
+      let intake = {};
+      try { intake = JSON.parse(lead.intake_data || '{}'); } catch(e) {}
+      const step = lead.intake_step || 0;
+      return [
+        { label: 'Email', value: intake.email || '', done: !!intake.email },
+        { label: 'Domain', value: intake.domain || '', done: !!intake.domain },
+        { label: 'Notes', value: intake.notes ? intake.notes.slice(0,30) + (intake.notes.length > 30 ? '...' : '') : '', done: !!intake.notes },
+      ];
     },
 
     get msgFilterCounts() {

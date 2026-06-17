@@ -1387,6 +1387,27 @@ async def export_leads(status: Optional[str] = None):
     )
 
 
+@app.get("/api/preview/download/{lead_id}")
+async def download_preview(lead_id: int):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    conn.close()
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead = dict(row)
+    path = ensure_preview(lead)
+    full_path = os.path.join(PREVIEWS_DIR, os.path.basename(path))
+    slug = re.sub(r"[^a-z0-9]+", "-", lead["name"].lower()).strip("-")
+    with open(full_path, "rb") as f:
+        content = f.read()
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/html",
+        headers={"Content-Disposition": f'attachment; filename="{slug}.html"'}
+    )
+
+
 @app.post("/api/preview/generate/{lead_id}")
 async def generate_preview(lead_id: int):
     conn = get_db()
@@ -1638,6 +1659,17 @@ def handle_intake_reply(lead: dict, body: str, cfg: dict) -> bool:
         if resend_key:
             send_intake_email(lead, intake, resend_key)
         send_ntfy("INTAKE COMPLETE - START BUILDING", f"{lead['name']}\nEmail: {intake.get('email','?')}\nDomain: {intake.get('domain','?')}\nPhone: {lead.get('phone','?')}", priority="urgent")
+        # Auto-log deal in Revenue tab (amount 0, update after payment)
+        try:
+            conn2 = get_db()
+            conn2.execute(
+                "INSERT INTO deals (lead_id, business, amount, notes) VALUES (?,?,?,?)",
+                (lead["id"], lead["name"], 0, f"Email: {intake.get('email','')} | Domain: {intake.get('domain','')} | Notes: {intake.get('notes','')}")
+            )
+            conn2.commit()
+            conn2.close()
+        except Exception as e:
+            print(f"[intake] auto-deal error: {e}", flush=True)
 
     return True
 

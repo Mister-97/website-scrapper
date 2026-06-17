@@ -449,11 +449,11 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div class="card p-5">
       <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">By Industry</div>
-      <canvas id="catChart" height="180"></canvas>
+      <div style="position:relative;height:180px;"><canvas id="catChart"></canvas></div>
     </div>
     <div class="card p-5">
       <div class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-4">By Location</div>
-      <canvas id="locChart" height="180"></canvas>
+      <div style="position:relative;height:180px;"><canvas id="locChart"></canvas></div>
     </div>
   </div>
 </div>
@@ -547,8 +547,8 @@
     </div>
   </div>
 
-  <div class="flex gap-3 mb-5">
-    <input x-model="leadSearch" @input.debounce.400ms="loadLeads(true)" placeholder="Search name, phone, category..." class="input w-72">
+  <div class="flex gap-3 mb-5 flex-wrap">
+    <input x-model="leadSearch" @input.debounce.400ms="loadLeads(true)" placeholder="Search..." class="input" style="min-width:0;flex:1;">
     <select x-model="leadStatus" @change="loadLeads(true)" class="select">
       <option value="all">All statuses</option>
       <option value="new">New</option>
@@ -564,7 +564,33 @@
     </select>
   </div>
 
-  <div class="card overflow-hidden">
+  <!-- Mobile card view -->
+  <div class="md:hidden space-y-2">
+    <div x-show="leads.length===0" class="card p-8 text-center text-gray-400 text-sm">No leads yet.</div>
+    <template x-for="lead in leads" :key="lead.id">
+      <div class="card p-3 flex items-center gap-3" @click="openThread(lead)" style="cursor:pointer;">
+        <div :style="'width:42px;height:42px;min-width:42px;border-radius:10px;overflow:hidden;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:#6366f1;'">
+          <img x-show="lead.logo_url" :src="lead.logo_url" style="width:100%;height:100%;object-fit:cover;" @error="$el.style.display='none'">
+          <span x-show="!lead.logo_url" x-text="(lead.name||'?')[0].toUpperCase()"></span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="lead.name"></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+            <span class="tag capitalize" x-text="lead.category"></span>
+            <span :class="'status-badge s-'+lead.status" x-text="lead.status"></span>
+          </div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:2px;" x-text="(lead.location||'').split(',')[0]"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+          <svg style="width:16px;height:16px;color:#d1d5db;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <span x-show="lead.sequence_active" style="font-size:9px;color:#a78bfa;font-weight:600;" x-text="`S${lead.sequence_step}`"></span>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Desktop table -->
+  <div class="card overflow-hidden hidden md:block">
     <div class="overflow-x-auto">
     <table class="w-full" style="min-width:700px;">
       <thead>
@@ -654,6 +680,7 @@
     </table>
     </div>
   </div>
+  <!-- end desktop table -->
   <!-- Pagination -->
   <div x-show="totalLeads > pageSize" class="flex items-center justify-between mt-4">
     <div class="text-sm text-gray-500" x-text="`Page ${page} of ${Math.max(1, Math.ceil(totalLeads / pageSize))} · ${totalLeads} total`"></div>
@@ -1127,12 +1154,12 @@ function app() {
         this.catChart = new Chart(catEl, {
           type: 'bar',
           data: { labels: catData.map(d => d.category), datasets: [{ data: catData.map(d => d.cnt), backgroundColor: '#4f46e5', borderRadius: 6, borderSkipped: false }] },
-          options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } } } }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } } } }
         });
         this.locChart = new Chart(locEl, {
-          type: 'doughnut',
-          data: { labels: locData.map(d => d.location), datasets: [{ data: locData.map(d => d.cnt), backgroundColor: ['#4f46e5','#7c3aed','#a21caf','#be185d','#b45309','#0369a1','#047857','#0f766e','#1d4ed8'] }] },
-          options: { plugins: { legend: { labels: { color: tickColor, font: { size: 11 }, boxWidth: 10 } } }, cutout: '65%' }
+          type: 'bar',
+          data: { labels: locData.map(d => (d.location||'').split(',')[0]), datasets: [{ data: locData.map(d => d.cnt), backgroundColor: '#7c3aed', borderRadius: 6, borderSkipped: false }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } } } }
         });
       });
     },

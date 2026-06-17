@@ -2025,8 +2025,9 @@ async def sms_reply_webhook(request: Request):
     # Signature validation disabled - was silently blocking real Twilio webhooks
     # validate_twilio_signature(str(request.url), params, request.headers.get("X-Twilio-Signature", ""))
 
-    from_  = form.get("From", "")
-    body   = form.get("Body", "").strip()
+    from_       = form.get("From", "")
+    body        = form.get("Body", "").strip()
+    msg_sid     = form.get("MessageSid", "")
     print(f"[WEBHOOK] inbound SMS from={from_} body={body!r}", flush=True)
 
     def normalize(p):
@@ -2052,8 +2053,8 @@ async def sms_reply_webhook(request: Request):
     if body.lower().strip() in STOP_WORDS:
         conn = get_db()
         conn.execute("UPDATE leads SET status='opted_out', sequence_active=0 WHERE id=?", (matched["id"],))
-        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
-                     (matched["id"], from_, body, "opted_out", "inbound"))
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction, twilio_sid) VALUES (?,?,?,?,?,?)",
+                     (matched["id"], from_, body, "opted_out", "inbound", msg_sid))
         conn.commit()
         conn.close()
         cfg = load_config()
@@ -2077,8 +2078,8 @@ async def sms_reply_webhook(request: Request):
     # Intake flow: check FIRST before classify_reply so intake messages aren't misrouted
     if matched.get("intake_step", 0) > 0 and matched.get("intake_step", 0) < 4:
         conn = get_db()
-        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
-                     (matched["id"], from_, body, "received", "inbound"))
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction, twilio_sid) VALUES (?,?,?,?,?,?)",
+                     (matched["id"], from_, body, "received", "inbound", msg_sid))
         conn.commit()
         conn.close()
         if has_twilio:
@@ -2100,8 +2101,8 @@ async def sms_reply_webhook(request: Request):
 
     conn = get_db()
     conn.execute("UPDATE leads SET status=?, sequence_active=0 WHERE id=?", (new_status, matched["id"]))
-    conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
-                 (matched["id"], from_, body, "received", "inbound"))
+    conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction, twilio_sid) VALUES (?,?,?,?,?,?)",
+                 (matched["id"], from_, body, "received", "inbound", msg_sid))
     conn.commit()
     conn.close()
 

@@ -1325,7 +1325,7 @@ async def get_settings():
 @app.post("/api/settings")
 async def save_settings(request: Request):
     body = await request.json()
-    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key", "dashboard_email", "dashboard_password_hash"}
+    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key", "dashboard_email", "dashboard_password_hash", "resend_api_key"}
     updates = {k: v for k, v in body.items() if k in allowed and v and v != "***"}
     save_config(updates)
     return {"ok": True}
@@ -1386,6 +1386,53 @@ Key framing: zero obligation, if they like it great, if not no problem. Getting 
     )
     with urllib.request.urlopen(req, timeout=15) as r:
         return json.loads(r.read())["content"][0]["text"].strip()
+
+
+def send_intake_email(lead: dict, prospect_email: str, phone: str, api_key: str):
+    """Send intake email to Josh when a prospect gives their email address."""
+    try:
+        name     = lead.get("name", "Unknown Business")
+        category = lead.get("category", "")
+        location = lead.get("location", "")
+        body_html = f"""
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+  <div style="background:#4F46E5;padding:16px 24px;border-radius:12px 12px 0 0">
+    <h1 style="color:white;margin:0;font-size:20px">EZ SEO - New Lead Ready</h1>
+  </div>
+  <div style="background:#f9fafb;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb">
+    <h2 style="margin:0 0 16px;color:#111">{name}</h2>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:8px 0;color:#6b7280;width:140px">Category</td><td style="padding:8px 0;color:#111">{category}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Location</td><td style="padding:8px 0;color:#111">{location}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Phone</td><td style="padding:8px 0;color:#111">{phone}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Their Email</td><td style="padding:8px 0;color:#111;font-weight:bold">{prospect_email}</td></tr>
+    </table>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+    <p style="color:#374151;margin:0 0 8px"><strong>Next steps:</strong></p>
+    <ol style="color:#374151;margin:0;padding-left:20px;line-height:1.8">
+      <li>Reply to their email asking for: business name spelling, phone for site, address or service area, services offered, photos or logo, preferred domain name, Zelle info</li>
+      <li>Buy domain on GoDaddy (~$12)</li>
+      <li>Build and get approval</li>
+      <li>Collect payment via Zelle at 80% done</li>
+      <li>Transfer domain to their GoDaddy</li>
+    </ol>
+  </div>
+</div>"""
+        payload = json.dumps({
+            "from": "josh@getezseo.com",
+            "to": ["97franchise@gmail.com"],
+            "subject": f"New Lead Ready to Close: {name}",
+            "html": body_html
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        )
+        urllib.request.urlopen(req, timeout=10)
+        print(f"[RESEND] Intake email sent for {name} to 97franchise@gmail.com", flush=True)
+    except Exception as e:
+        print(f"[RESEND ERROR] {e}", flush=True)
 
 
 def send_ntfy(title: str, message: str, priority: str = "default"):
@@ -1596,6 +1643,27 @@ async def sms_reply_webhook(request: Request):
 
     cfg = load_config()
     has_twilio = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
+
+    # Detect email address in inbound message - prospect is ready to close
+    email_match = re.search(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', body)
+    if email_match and has_twilio:
+        prospect_email = email_match.group(0)
+        resend_key = cfg.get("resend_api_key", "")
+        if resend_key:
+            send_intake_email(matched, prospect_email, from_, resend_key)
+        send_ntfy("EMAIL COLLECTED - CLOSE THIS", f"{matched['name']}\nEmail: {prospect_email}\nPhone: {from_}", priority="urgent")
+        conn = get_db()
+        conn.execute("UPDATE leads SET status='closing' WHERE id=?", (matched["id"],))
+        conn.commit()
+        conn.close()
+        confirm_msg = "Got it! I will be in touch shortly to get everything started."
+        send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], from_, confirm_msg)
+        conn = get_db()
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                     (matched["id"], from_, confirm_msg, "sent", "outbound"))
+        conn.commit()
+        conn.close()
+        return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
     # Notify Josh FIRST via push notification
     if intent == "claim":

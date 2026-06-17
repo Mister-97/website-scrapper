@@ -1568,6 +1568,22 @@ async def generate_preview_bulk(request: Request):
     return {"ok": True, "results": results}
 
 
+@app.post("/api/preview/upload")
+async def upload_preview(request: Request):
+    body = await request.json()
+    filename = body.get("filename", "").strip()
+    html = body.get("html", "").strip()
+    if not filename or not html:
+        return JSONResponse({"ok": False, "error": "filename and html required"})
+    if not filename.endswith(".html"):
+        filename += ".html"
+    safe = os.path.basename(filename)
+    os.makedirs(PREVIEWS_DIR, exist_ok=True)
+    with open(os.path.join(PREVIEWS_DIR, safe), "w") as f:
+        f.write(html)
+    return {"ok": True, "url": f"/previews/{safe.replace('.html', '')}"}
+
+
 @app.post("/api/sms/send")
 async def send_sms(request: Request):
     body      = await request.json()

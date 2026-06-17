@@ -1127,6 +1127,10 @@ function app() {
       await this.loadStats();
       await this.loadSeqStatus();
       this.renderCharts();
+      // Check if a scrape is already running (e.g. auto-scrape kicked off before login)
+      const sr = await fetch('/api/scrape/status');
+      const sd = await sr.json();
+      if (sd.running) { this.scraping = true; this.scrapeLog = sd.log; }
       setInterval(() => this.pollScraper(), 2500);
       setInterval(() => this.loadSeqStatus(), 30000);
       setInterval(() => this.autoRefresh(), 20000);
@@ -1186,13 +1190,13 @@ function app() {
       const r = await fetch('/api/scrape/status');
       const data = await r.json();
       this.scrapeLog = data.log;
-      if (this.scraping && !data.running) {
+      if (data.running) {
+        this.scraping = true;
+        this.$nextTick(() => { const b = document.getElementById('logBox'); if (b) b.scrollTop = b.scrollHeight; });
+      } else if (this.scraping) {
         this.scraping = false;
         await this.loadStats();
         this.renderCharts();
-      }
-      if (data.running) {
-        this.$nextTick(() => { const b = document.getElementById('logBox'); if (b) b.scrollTop = b.scrollHeight; });
       }
     },
 

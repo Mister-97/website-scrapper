@@ -262,6 +262,7 @@ def classify_reply(text: str, current_status: str = "") -> str:
 async def sequence_loop():
     """Background loop: follow-ups every 60s, auto-scrape at 8am CST, 30-day re-engagement."""
     last_scrape_date = None
+    last_sequence_notify_date = None
     while True:
         await asyncio.sleep(60)
         try:
@@ -310,6 +311,9 @@ async def sequence_loop():
                     if new_leads:
                         ids = [l["id"] for l in new_leads]
                         print(f"[auto-sequence] Starting {len(ids)} new leads ({sent_today}/{daily_limit} sent today)", flush=True)
+                        if last_sequence_notify_date != today:
+                            last_sequence_notify_date = today
+                            send_ntfy("Agents Started Outreach", f"Wyatt and Andrew are texting leads now. {len(new_leads)} queued today ({sent_today}/{daily_limit} limit).", priority="default")
                         now = datetime.now()
                         twilio_ok = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
                         if twilio_ok:

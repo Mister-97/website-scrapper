@@ -1499,13 +1499,15 @@ async def get_settings():
         "twilio_from_number": cfg.get("twilio_from_number", ""),
         "notify_number":      cfg.get("notify_number", ""),
         "base_url":           cfg.get("base_url", ""),
+        "auto_sequence":      cfg.get("auto_sequence", False),
+        "daily_limit":        cfg.get("daily_limit", 200),
     }
 
 @app.post("/api/settings")
 async def save_settings(request: Request):
     body = await request.json()
     allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key", "dashboard_email", "dashboard_password_hash", "resend_api_key", "auto_sequence", "daily_limit"}
-    updates = {k: v for k, v in body.items() if k in allowed and v != "" and v != "***"}
+    updates = {k: v for k, v in body.items() if k in allowed and (isinstance(v, bool) or (v != "" and v != "***"))}
     save_config(updates)
     return {"ok": True}
 

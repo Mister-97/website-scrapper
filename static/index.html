@@ -731,7 +731,7 @@
           <div class="text-sm font-semibold text-gray-800">Auto-message new leads</div>
           <div class="text-xs text-gray-500">Wyatt and Andrew start sequences for new leads automatically</div>
         </div>
-        <button @click="settings.auto_sequence = !settings.auto_sequence"
+        <button @click="settings.auto_sequence = !settings.auto_sequence; saveSettings()"
           :class="settings.auto_sequence ? 'bg-indigo-600' : 'bg-gray-200'"
           style="width:44px;height:24px;border-radius:12px;border:none;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;">
           <span :style="settings.auto_sequence ? 'left:22px;' : 'left:2px;'"
@@ -740,7 +740,7 @@
       </div>
       <div x-show="settings.auto_sequence">
         <label class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Daily limit (total texts per day)</label>
-        <input x-model="settings.daily_limit" type="number" placeholder="200" class="input" style="width:120px;">
+        <input x-model="settings.daily_limit" type="number" placeholder="200" class="input" style="width:120px;" @change="saveSettings()">
         <p class="text-xs text-gray-500 mt-1">200 = ~100 per agent. Twilio charges $0.008/msg.</p>
       </div>
     </div>

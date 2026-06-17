@@ -52,9 +52,16 @@
 
 <!-- Sidebar -->
 <aside class="w-56 min-h-screen border-r border-gray-200 bg-white flex flex-col px-3 py-5 fixed left-0 top-0">
-  <div class="flex items-center gap-2.5 px-3 mb-8">
-    <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-sm font-black text-white">L</div>
-    <span class="font-bold text-sm tracking-tight text-gray-900">LeadGen</span>
+  <div class="flex items-center justify-between px-3 mb-8">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-sm font-black text-white">EZ</div>
+      <span class="font-bold text-sm tracking-tight text-gray-900">EZ SEO</span>
+    </div>
+    <form method="POST" action="/api/auth/logout">
+      <button type="submit" title="Log out" class="text-gray-400 hover:text-red-500 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      </button>
+    </form>
   </div>
   <nav class="flex flex-col gap-1 flex-1">
     <div @click="tab='dashboard'; loadStats().then(() => renderCharts())" :class="tab==='dashboard' ? 'sidebar-item sidebar-active' : 'sidebar-item sidebar-inactive'">

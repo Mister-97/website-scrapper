@@ -2081,8 +2081,34 @@ async def auth_logout():
     return response
 
 
+@app.get("/home", response_class=HTMLResponse)
+async def home_page():
+    return HTMLResponse("""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EZ SEO - Get Found Online</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 min-h-screen flex items-center justify-center">
+<div class="text-center px-6">
+  <h1 class="text-white text-5xl font-bold mb-4">EZ SEO</h1>
+  <p class="text-gray-400 text-xl mb-8">Get your business found on Google, ChatGPT, and everywhere else.</p>
+  <a href="mailto:97franchise@gmail.com"
+     class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-lg transition">
+    Get a Free Preview
+  </a>
+</div>
+</body>
+</html>""")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
+    host = request.headers.get("host", "")
+    if "admin" not in host:
+        return RedirectResponse("/home", status_code=302)
     if not _is_authenticated(request):
         return RedirectResponse("/login", status_code=302)
     with open("static/index.html") as f:

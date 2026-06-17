@@ -2549,11 +2549,11 @@ async def import_leads(request: Request):
             skipped += 1
             continue
         conn.execute("""INSERT INTO leads
-            (name, phone, address, category, location, status, created_at, sms_sent, notes)
-            VALUES (?,?,?,?,?,?,?,?,?)""",
+            (name, phone, address, category, location, status, created_at, sms_sent, notes, agent_id)
+            VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (l.get("name",""), phone, l.get("address",""), l.get("category",""),
              l.get("location",""), l.get("status","new"), l.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-             l.get("sms_sent", 0), l.get("notes","")))
+             l.get("sms_sent", 0), l.get("notes",""), l.get("agent_id", 1)))
         imported += 1
     conn.commit()
     conn.close()

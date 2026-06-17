@@ -49,6 +49,8 @@ _ENV_KEYS = {
     "base_url":           "BASE_URL",
 }
 
+CANONICAL_BASE_URL = "https://admin.getezseo.com"
+
 def load_config():
     cfg: dict = {}
     if os.path.exists(CONFIG_PATH):
@@ -59,6 +61,9 @@ def load_config():
         val = os.environ.get(env_key)
         if val:
             cfg[cfg_key] = val
+    # Always default base_url to the canonical domain
+    if not cfg.get("base_url") or "onrender.com" in cfg.get("base_url", ""):
+        cfg["base_url"] = CANONICAL_BASE_URL
     return cfg
 
 def save_config(data: dict):
@@ -377,6 +382,8 @@ async def lifespan(app: FastAPI):
             shutil.copy2(DB_PATH, backup)
             print(f"[backup] Created {backup}")
     init_db()
+    # Permanently write the correct base_url to config so it never reverts
+    save_config({"base_url": CANONICAL_BASE_URL})
     os.makedirs("static", exist_ok=True)
     os.makedirs(PREVIEWS_DIR, exist_ok=True)
     # previews served via route below for clean URLs (no .html)

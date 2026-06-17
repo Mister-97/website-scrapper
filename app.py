@@ -1261,11 +1261,12 @@ def ensure_preview(lead: dict) -> str:
 
 
 def absolute_url(path: str) -> str:
-    """Turn a /previews/... path into a full link using the configured base URL."""
+    """Turn a /previews/... path into a full link using the configured base URL. Strips .html from preview paths."""
     base = (load_config().get("base_url") or "").rstrip("/")
-    if base and path.startswith("/"):
-        return f"{base}{path}"
-    return path
+    clean = path.replace(".html", "") if path.startswith("/previews/") else path
+    if base and clean.startswith("/"):
+        return f"{base}{clean}"
+    return clean
 
 
 def validate_twilio_signature(request_url: str, params: dict, signature: str) -> bool:
@@ -1979,7 +1980,8 @@ async def sms_reply_webhook(request: Request):
         try:
             preview_path = ensure_preview(matched)
             base = (cfg.get("base_url") or str(request.base_url)).rstrip("/")
-            preview_link = shorten_url(f"{base}{preview_path}")
+            clean_path = preview_path.replace(".html", "")
+            preview_link = shorten_url(f"{base}{clean_path}")
 
             conn = get_db()
             conn.execute("UPDATE leads SET status='preview_sent' WHERE id=?", (matched["id"],))
@@ -1987,9 +1989,9 @@ async def sms_reply_webhook(request: Request):
             conn.close()
 
             reply_msg = (
-                f"Perfect — I actually already built one for you. "
-                f"Here's your free preview site: {preview_link}\n\n"
-                f"Reply YES if you want to keep it and I'll get it live for you."
+                f"Perfect, I actually already built one for you. "
+                f"Here is your free preview site: {preview_link}\n\n"
+                f"Reply YES if you want to keep it and I will get it live for you."
             )
             send_twilio_sms(
                 cfg["twilio_account_sid"], cfg["twilio_auth_token"],

@@ -1320,6 +1320,11 @@ def validate_twilio_signature(request_url: str, params: dict, signature: str) ->
 
 # ── API Routes ────────────────────────────────────────────────────────────────
 
+@app.get("/api/ping")
+async def ping():
+    return {"ok": True}
+
+
 @app.post("/api/scrape/start")
 async def start_scrape(request: Request, background_tasks: BackgroundTasks):
     global scraper_running

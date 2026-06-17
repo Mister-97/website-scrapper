@@ -1345,6 +1345,21 @@ async def ping():
     return {"ok": True}
 
 
+@app.post("/api/admin/rebalance-agents")
+async def rebalance_agents():
+    """Redistribute uncontacted new leads evenly between agents."""
+    conn = get_db()
+    leads = conn.execute(
+        "SELECT id FROM leads WHERE status='new' AND sequence_active=0 ORDER BY id ASC"
+    ).fetchall()
+    agent_ids = list(AGENTS.keys())
+    for i, row in enumerate(leads):
+        conn.execute("UPDATE leads SET agent_id=? WHERE id=?", (agent_ids[i % len(agent_ids)], row["id"]))
+    conn.commit()
+    conn.close()
+    return {"ok": True, "rebalanced": len(leads)}
+
+
 @app.post("/api/scrape/start")
 async def start_scrape(request: Request, background_tasks: BackgroundTasks):
     global scraper_running

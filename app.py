@@ -6,10 +6,13 @@ Open: http://localhost:8000
 
 import asyncio
 import csv
+import hashlib
+import hmac
 import io
 import json
 import os
 import re
+import secrets
 import sqlite3
 import urllib.parse
 import urllib.request
@@ -20,7 +23,7 @@ from typing import Optional
 import requests as http_requests
 import uvicorn
 from fastapi import FastAPI, Request, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 DATA_DIR    = os.environ.get("DATA_DIR", ".")
@@ -1322,7 +1325,7 @@ async def get_settings():
 @app.post("/api/settings")
 async def save_settings(request: Request):
     body = await request.json()
-    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key"}
+    allowed = {"twilio_account_sid", "twilio_auth_token", "twilio_from_number", "notify_number", "base_url", "anthropic_api_key", "dashboard_email", "dashboard_password_hash"}
     updates = {k: v for k, v in body.items() if k in allowed and v and v != "***"}
     save_config(updates)
     return {"ok": True}
@@ -1998,8 +2001,90 @@ async def get_lead_messages(lead_id: int):
 
 
 
+SESSION_COOKIE = "ezseo_session"
+
+def _hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def _make_token(password_hash: str) -> str:
+    secret = password_hash.encode()
+    return hmac.new(secret, b"authenticated", hashlib.sha256).hexdigest()
+
+def _verify_token(token: str, password_hash: str) -> bool:
+    expected = _make_token(password_hash)
+    return secrets.compare_digest(token, expected)
+
+def _is_authenticated(request: Request) -> bool:
+    cfg = load_config()
+    pw_hash = cfg.get("dashboard_password_hash", "")
+    if not pw_hash:
+        return True  # no password set, open access
+    token = request.cookies.get(SESSION_COOKIE, "")
+    return bool(token) and _verify_token(token, pw_hash)
+
+LOGIN_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EZ SEO - Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 min-h-screen flex items-center justify-center">
+<div class="bg-gray-900 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
+  <h1 class="text-white text-2xl font-bold mb-2 text-center">EZ SEO</h1>
+  <p class="text-gray-400 text-sm text-center mb-6">Admin Dashboard</p>
+  {error}
+  <form method="POST" action="/api/auth/login">
+    <input type="email" name="email" placeholder="Email" required
+      class="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-3 outline-none focus:ring-2 focus:ring-blue-500" />
+    <input type="password" name="password" placeholder="Password" required
+      class="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-5 outline-none focus:ring-2 focus:ring-blue-500" />
+    <button type="submit"
+      class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg py-3 transition">
+      Sign In
+    </button>
+  </form>
+</div>
+</body>
+</html>"""
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, error: str = ""):
+    if _is_authenticated(request):
+        return RedirectResponse("/", status_code=302)
+    err_html = f'<p class="text-red-400 text-sm text-center mb-4">{error}</p>' if error else ""
+    return LOGIN_HTML.replace("{error}", err_html)
+
+
+@app.post("/api/auth/login")
+async def auth_login(request: Request):
+    form = await request.form()
+    email = form.get("email", "").strip().lower()
+    password = form.get("password", "")
+    cfg = load_config()
+    stored_email = cfg.get("dashboard_email", "").strip().lower()
+    stored_hash  = cfg.get("dashboard_password_hash", "")
+    if not stored_hash or email != stored_email or _hash_password(password) != stored_hash:
+        return RedirectResponse("/login?error=Invalid+email+or+password", status_code=302)
+    token = _make_token(stored_hash)
+    response = RedirectResponse("/", status_code=302)
+    response.set_cookie(SESSION_COOKIE, token, httponly=True, secure=True, samesite="lax", max_age=60*60*24*30)
+    return response
+
+
+@app.post("/api/auth/logout")
+async def auth_logout():
+    response = RedirectResponse("/login", status_code=302)
+    response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
 @app.get("/", response_class=HTMLResponse)
-async def dashboard():
+async def dashboard(request: Request):
+    if not _is_authenticated(request):
+        return RedirectResponse("/login", status_code=302)
     with open("static/index.html") as f:
         return f.read()
 

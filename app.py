@@ -339,38 +339,36 @@ async def sequence_loop():
                             new_leads.append(from_agents[a].pop(0))
                 remaining = daily_limit - sent_today
                 conn.close()
-                    if new_leads:
-                        ids = [l["id"] for l in new_leads]
-                        print(f"[auto-sequence] Starting {len(ids)} new leads ({sent_today}/{daily_limit} sent today)", flush=True)
-                        today_date = datetime.now().strftime("%Y-%m-%d")
-                        if last_sequence_notify_date != today_date:
-                            last_sequence_notify_date = today_date
-                            send_ntfy("Agents Started Outreach", f"Wyatt and Andrew are texting leads now. {len(new_leads)} queued today ({sent_today}/{daily_limit} limit).", priority="default")
-                        now = datetime.now()
-                        twilio_ok = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
-                        if twilio_ok:
-                            seq = get_sequence()
-                            for lead in new_leads:
-                                lead = dict(lead)
-                                try:
-                                    await asyncio.sleep(1.2)
-                                    city = (lead.get("location") or "your area").split(",")[0].split(" IL")[0].split(" TX")[0].strip()
-                                    msg = seq[0].replace("{name}", lead["name"]).replace("{category}", lead.get("category") or "business").replace("{city}", city)
-                                    if "{preview_url}" in msg:
-                                        msg = msg.replace("{preview_url}", absolute_url(ensure_preview(lead)))
-                                    sid = send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
-                                    follow_up_at = (now + timedelta(days=SEQUENCE_DELAYS[1])).strftime("%Y-%m-%d %H:%M:%S")
-                                    conn2 = get_db()
-                                    conn2.execute("UPDATE leads SET sequence_active=1, sequence_step=1, follow_up_at=?, status='contacted', sms_sent=sms_sent+1, first_contacted_at=COALESCE(first_contacted_at, ?) WHERE id=?",
-                                                  (follow_up_at, now.strftime("%Y-%m-%d %H:%M:%S"), lead["id"]))
-                                    conn2.execute("INSERT INTO sms_log (lead_id, phone, message, status, twilio_sid, direction) VALUES (?,?,?,?,?,?)",
-                                                  (lead["id"], lead["phone"], msg, "sent", sid, "outbound"))
-                                    conn2.commit()
-                                    conn2.close()
-                                except Exception as e:
-                                    print(f"[auto-sequence] Error for {lead.get('name')}: {e}", flush=True)
-                else:
-                    conn.close()
+                if new_leads:
+                    ids = [l["id"] for l in new_leads]
+                    print(f"[auto-sequence] Starting {len(ids)} new leads ({sent_today}/{daily_limit} sent today)", flush=True)
+                    today_date = datetime.now().strftime("%Y-%m-%d")
+                    if last_sequence_notify_date != today_date:
+                        last_sequence_notify_date = today_date
+                        send_ntfy("Agents Started Outreach", f"Wyatt and Andrew are texting leads now. {len(new_leads)} queued today ({sent_today}/{daily_limit} limit).", priority="default")
+                    now = datetime.now()
+                    twilio_ok = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
+                    if twilio_ok:
+                        seq = get_sequence()
+                        for lead in new_leads:
+                            lead = dict(lead)
+                            try:
+                                await asyncio.sleep(1.2)
+                                city = (lead.get("location") or "your area").split(",")[0].split(" IL")[0].split(" TX")[0].strip()
+                                msg = seq[0].replace("{name}", lead["name"]).replace("{category}", lead.get("category") or "business").replace("{city}", city)
+                                if "{preview_url}" in msg:
+                                    msg = msg.replace("{preview_url}", absolute_url(ensure_preview(lead)))
+                                sid = send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
+                                follow_up_at = (now + timedelta(days=SEQUENCE_DELAYS[1])).strftime("%Y-%m-%d %H:%M:%S")
+                                conn2 = get_db()
+                                conn2.execute("UPDATE leads SET sequence_active=1, sequence_step=1, follow_up_at=?, status='contacted', sms_sent=sms_sent+1, first_contacted_at=COALESCE(first_contacted_at, ?) WHERE id=?",
+                                              (follow_up_at, now.strftime("%Y-%m-%d %H:%M:%S"), lead["id"]))
+                                conn2.execute("INSERT INTO sms_log (lead_id, phone, message, status, twilio_sid, direction) VALUES (?,?,?,?,?,?)",
+                                              (lead["id"], lead["phone"], msg, "sent", sid, "outbound"))
+                                conn2.commit()
+                                conn2.close()
+                            except Exception as e:
+                                print(f"[auto-sequence] Error for {lead.get('name')}: {e}", flush=True)
         except Exception as e:
             print(f"[auto-sequence] loop error: {e}", flush=True)
         try:

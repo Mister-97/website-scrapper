@@ -288,9 +288,9 @@ async def sequence_loop():
                     cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
                     all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
                     locs = [random.choice(all_locs)]
-                print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories x {len(locs)} locations")
-                send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. {len(cats)} categories x {len(locs)} locations.", priority="default")
-                asyncio.create_task(run_scraper(cats, locs))
+                print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories, starting in {locs[0]}, min 100 leads")
+                send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. Starting in {locs[0]}. Will keep going until 100 numbers found.", priority="default")
+                asyncio.create_task(run_scraper(cats, locs, min_leads=100, extra_locs=all_locs))
         except Exception as e:
             print(f"[auto-scrape] error: {e}")
         try:
@@ -411,7 +411,7 @@ app = FastAPI(lifespan=lifespan)
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
-async def run_scraper(categories: list[str], locations: list[str]):
+async def run_scraper(categories: list[str], locations: list[str], min_leads: int = 0, extra_locs: list = None):
     global scraper_running, scraper_stop_requested, scraper_log
     scraper_running = True
     scraper_stop_requested = False
@@ -423,7 +423,7 @@ async def run_scraper(categories: list[str], locations: list[str]):
 
     try:
         from playwright.async_api import async_playwright
-        log(f"Starting: {len(categories)} industries x {len(locations)} locations")
+        log(f"Starting: {len(categories)} industries x {len(locations)} locations (min {min_leads} leads)")
         # Dedupe by (name, location) and by phone number (including opted-out numbers)
         seen_names = set()
         seen_phones = set()
@@ -434,6 +434,14 @@ async def run_scraper(categories: list[str], locations: list[str]):
             seen_phones.add(re.sub(r"\D", "", row["phone"] or ""))
         conn.close()
 
+        # Build a dynamic work list so we can extend it if min_leads not reached
+        work_locs = list(locations)
+        used_locs = set(locations)
+        extra_pool = [l for l in (extra_locs or []) if l not in used_locs]
+        random.shuffle(extra_pool)
+        extra_idx = 0
+        total_found = 0
+
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context(
@@ -442,7 +450,12 @@ async def run_scraper(categories: list[str], locations: list[str]):
             )
             page = await context.new_page()
 
-            for location in locations:
+            loc_idx = 0
+            while loc_idx < len(work_locs):
+                location = work_locs[loc_idx]
+                loc_idx += 1
+                loc_found = 0
+
                 for category in categories:
                     if scraper_stop_requested:
                         log("Scrape stopped early by user.")
@@ -528,6 +541,7 @@ async def run_scraper(categories: list[str], locations: list[str]):
                                 conn.commit()
                                 conn.close()
                                 found += 1
+                                loc_found += 1
                                 log(f"  + {name} | {phone}")
                             except Exception:
                                 continue
@@ -536,13 +550,23 @@ async def run_scraper(categories: list[str], locations: list[str]):
                     except Exception as e:
                         log(f"  Error: {e}")
                     await asyncio.sleep(0.5)
+
+                total_found += loc_found
+
                 if scraper_stop_requested:
                     break
+
+                # If a minimum is set and not yet reached, pull the next random city
+                if min_leads > 0 and total_found < min_leads and extra_idx < len(extra_pool):
+                    next_loc = extra_pool[extra_idx]
+                    extra_idx += 1
+                    work_locs.append(next_loc)
+                    log(f"Only {total_found}/{min_leads} leads so far, expanding to {next_loc}...")
 
             await browser.close()
 
         total = get_db().execute("SELECT COUNT(*) FROM leads").fetchone()[0]
-        log(f"Scrape complete. Total leads: {total}")
+        log(f"Scrape complete. {total_found} new leads found this run. Total in DB: {total}")
     except Exception as e:
         log(f"Fatal error: {e}")
     finally:

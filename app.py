@@ -282,7 +282,7 @@ async def sequence_loop():
             now_utc = datetime.utcnow()
             today_str = now_utc.strftime("%Y-%m-%d")
             cfg = load_config()
-            if now_utc.hour == 14 and now_utc.minute < 30 and cfg.get("last_scrape_date") != today_str:
+            if now_utc.hour == 14 and now_utc.minute < 30 and cfg.get("last_scrape_date") != today_str and not scraper_running:
                 save_config({"last_scrape_date": today_str})
                 queue = cfg.get("scrape_queue") or []
                 all_locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX","Garland TX","Mesquite TX","McKinney TX","Frisco TX","Denton TX"]
@@ -324,8 +324,9 @@ async def sequence_loop():
                     if new_leads:
                         ids = [l["id"] for l in new_leads]
                         print(f"[auto-sequence] Starting {len(ids)} new leads ({sent_today}/{daily_limit} sent today)", flush=True)
-                        if last_sequence_notify_date != today:
-                            last_sequence_notify_date = today
+                        today_date = datetime.now().strftime("%Y-%m-%d")
+                        if last_sequence_notify_date != today_date:
+                            last_sequence_notify_date = today_date
                             send_ntfy("Agents Started Outreach", f"Wyatt and Andrew are texting leads now. {len(new_leads)} queued today ({sent_today}/{daily_limit} limit).", priority="default")
                         now = datetime.now()
                         twilio_ok = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
@@ -463,6 +464,7 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage", "--disable-infobars",
             "--no-first-run", "--no-default-browser-check",
+            "--disable-gpu", "--no-zygote",
         ]
         UA_LIST = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -616,19 +618,30 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                             log(f"  [W{wid+1}] Done — {found} new leads")
 
                         except Exception as e:
-                            log(f"  [W{wid+1}] Error: {e}")
+                            log(f"  [W{wid+1}] Error on search: {e}")
                             try:
                                 await ctx.close()
                             except Exception:
                                 pass
                             try:
                                 ctx, page = await make_ctx_page(browser, wid)
-                            except Exception:
-                                break
+                            except Exception as e2:
+                                log(f"  [W{wid+1}] Browser dead, relaunching: {e2}")
+                                try:
+                                    await browser.close()
+                                except Exception:
+                                    pass
+                                try:
+                                    browser = await p.chromium.launch(headless=True, args=BROWSER_ARGS)
+                                    ctx, page = await make_ctx_page(browser, wid)
+                                except Exception as e3:
+                                    log(f"  [W{wid+1}] Could not relaunch browser, stopping worker: {e3}")
+                                    break
 
                         await asyncio.sleep(random.uniform(0.3, 1.0))
 
                 finally:
+                    log(f"[W{wid+1}] Worker finished")
                     try:
                         await ctx.close()
                     except Exception:
@@ -641,154 +654,6 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
         await asyncio.gather(*[worker(i) for i in range(N_WORKERS)])
 
         total_found = counter[0]
-
-        async def make_page(browser):
-            ctx = await browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            )
-            pg = await ctx.new_page()
-            pg.set_default_navigation_timeout(15000)
-            pg.set_default_timeout(10000)
-            return ctx, pg
-
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context, page = await make_page(browser)
-
-            loc_idx = 0
-            while loc_idx < len(work_locs):
-                location = work_locs[loc_idx]
-                loc_idx += 1
-                loc_found = 0
-
-                for category in categories:
-                    if scraper_stop_requested:
-                        log("Scrape stopped early by user.")
-                        break
-                    log(f"Searching: {category} in {location}")
-                    found = 0
-                    try:
-                        query = f"{category} in {location}"
-                        url = f"https://www.google.com/maps/search/{query.replace(' ', '+')}"
-                        await page.goto(url, wait_until="domcontentloaded", timeout=20000)
-                        await page.wait_for_timeout(1200)
-
-                        panel = page.locator('div[role="feed"]')
-                        prev_count = 0
-                        for _ in range(8):
-                            await panel.evaluate("el => el.scrollBy(0, 800)")
-                            await page.wait_for_timeout(600)
-                            cur_count = await page.locator('a[href*="/maps/place/"]').count()
-                            if cur_count == prev_count:
-                                break
-                            prev_count = cur_count
-
-                        listings = await page.locator('a[href*="/maps/place/"]').all()
-                        hrefs, seen_hrefs = [], set()
-                        for l in listings:
-                            href = await l.get_attribute("href")
-                            if href and href not in seen_hrefs:
-                                seen_hrefs.add(href)
-                                hrefs.append(href)
-
-                        consec_failures = 0
-                        for href in hrefs[:40]:
-                            try:
-                                await page.goto(href, wait_until="domcontentloaded", timeout=12000)
-                                await page.wait_for_timeout(700)
-                                consec_failures = 0
-
-                                name_el = page.locator("h1").first
-                                name = (await name_el.inner_text()).strip() if await name_el.count() > 0 else ""
-                                if not name or (name, location) in seen_names:
-                                    continue
-
-                                if await page.locator('a[data-item-id="authority"]').count() > 0:
-                                    seen_names.add((name, location))
-                                    continue
-
-                                phone_el = page.locator('button[data-item-id*="phone"]')
-                                phone = ""
-                                if await phone_el.count() > 0:
-                                    phone = (await phone_el.first.get_attribute("aria-label") or "").replace("Phone:", "").strip()
-                                    if not phone:
-                                        phone = (await phone_el.first.inner_text()).strip()
-                                if not phone:
-                                    seen_names.add((name, location))
-                                    continue
-                                phone_digits = re.sub(r"\D", "", phone)
-                                if phone_digits in seen_phones:
-                                    seen_names.add((name, location))
-                                    continue
-                                seen_phones.add(phone_digits)
-
-                                address_el = page.locator('button[data-item-id="address"]')
-                                address = ""
-                                if await address_el.count() > 0:
-                                    address = (await address_el.first.get_attribute("aria-label") or "").replace("Address:", "").strip()
-
-                                logo_url = ""
-                                try:
-                                    img_el = page.locator('button[jsaction*="heroHeaderImage"] img, img[decoding="async"][src*="googleusercontent"]').first
-                                    if await img_el.count() > 0:
-                                        src = await img_el.get_attribute("src") or ""
-                                        if src.startswith("http"):
-                                            logo_url = src.split("=")[0] + "=s400-c" if "=" in src else src
-                                except Exception:
-                                    pass
-
-                                seen_names.add((name, location))
-                                agent_id = 1 if total_found % 2 == 0 else 2
-                                conn = get_db()
-                                conn.execute(
-                                    "INSERT INTO leads (name, phone, address, category, location, maps_url, logo_url, agent_id) VALUES (?,?,?,?,?,?,?,?)",
-                                    (name, phone, address, category, location, page.url, logo_url, agent_id)
-                                )
-                                conn.commit()
-                                conn.close()
-                                found += 1
-                                loc_found += 1
-                                total_found += 1
-                                log(f"  + {name} | {phone} (agent {'Wyatt' if agent_id == 1 else 'Andrew'})")
-                            except Exception:
-                                consec_failures += 1
-                                if consec_failures >= 5:
-                                    log("  5 timeouts in a row — restarting browser page")
-                                    try:
-                                        await context.close()
-                                    except Exception:
-                                        pass
-                                    context, page = await make_page(browser)
-                                    consec_failures = 0
-                                continue
-
-                        log(f"  Done — {found} new leads")
-                    except Exception as e:
-                        log(f"  Error: {e}")
-                        try:
-                            await context.close()
-                        except Exception:
-                            pass
-                        context, page = await make_page(browser)
-                    await asyncio.sleep(0.5)
-
-                if scraper_stop_requested:
-                    break
-
-                # If a minimum is set and not yet reached, pull the next random city
-                if min_leads > 0 and total_found < min_leads and extra_idx < len(extra_pool):
-                    next_loc = extra_pool[extra_idx]
-                    extra_idx += 1
-                    work_locs.append(next_loc)
-                    log(f"Only {total_found}/{min_leads} leads so far, expanding to {next_loc}...")
-
-            try:
-                await context.close()
-            except Exception:
-                pass
-            await browser.close()
-
         total = get_db().execute("SELECT COUNT(*) FROM leads").fetchone()[0]
         log(f"Scrape complete. {total_found} new leads found this run. Total in DB: {total}")
     except Exception as e:

@@ -2095,7 +2095,7 @@ async def test_notify():
 
 @app.post("/api/test-day0")
 async def test_day0():
-    """Send a real Day 0 message to notify_number so Josh can preview what leads receive."""
+    """Send a real Day 0 message to notify_number and create/reuse a test lead so replies get handled by the agents."""
     cfg = load_config()
     account_sid   = cfg.get("twilio_account_sid")
     auth_token    = cfg.get("twilio_auth_token")
@@ -2104,10 +2104,37 @@ async def test_day0():
     if not all([account_sid, auth_token, from_number, notify_number]):
         return JSONResponse({"ok": False, "error": "Missing Twilio config or notify_number"})
     try:
+        conn = get_db()
+        # Normalize phone for lookup
+        digits = re.sub(r'\D', '', notify_number)
+
+        # Reuse or create a test lead with this phone so inbound replies are routed correctly
+        existing = conn.execute("SELECT * FROM leads WHERE phone = ? OR phone = ?", (notify_number, '+' + digits)).fetchone()
+        if existing:
+            lead_id = existing["id"]
+            # Reset to new so sequence starts fresh
+            conn.execute("UPDATE leads SET status='new', sequence_active=0, sequence_step=0, intake_step=0, intake_data='{}' WHERE id=?", (lead_id,))
+        else:
+            conn.execute(
+                "INSERT INTO leads (name, phone, category, location, status, agent_id, maps_url) VALUES (?,?,?,?,?,?,?)",
+                ("Magic Fresh", notify_number, "cleaning service", "Dallas TX", "new", 1, "https://maps.google.com")
+            )
+            lead_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         seq = get_sequence()
         msg = seq[0].replace("{name}", "Magic Fresh").replace("{category}", "cleaning service").replace("{city}", "Dallas")
         sid = send_twilio_sms(account_sid, auth_token, from_number, notify_number, msg)
-        return {"ok": True, "sid": sid, "to": notify_number, "message": msg}
+
+        # Mark as contacted and log the outbound SMS
+        conn.execute("UPDATE leads SET status='contacted', sequence_active=1, sequence_step=1, first_contacted_at=? WHERE id=?", (now_str, lead_id))
+        follow_up_at = (datetime.now() + timedelta(days=SEQUENCE_DELAYS[1])).strftime("%Y-%m-%d %H:%M:%S")
+        conn.execute("UPDATE leads SET follow_up_at=? WHERE id=?", (follow_up_at, lead_id))
+        conn.execute("INSERT INTO sms_log (lead_id, message, direction, sent_at, twilio_sid) VALUES (?,?,?,?,?)",
+                     (lead_id, msg, "outbound", now_str, sid))
+        conn.commit()
+        conn.close()
+        return {"ok": True, "sid": sid, "to": notify_number, "lead_id": lead_id, "message": msg}
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)})
 

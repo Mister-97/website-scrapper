@@ -153,6 +153,16 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+    try:
+        conn.execute("ALTER TABLE leads ADD COLUMN intake_step INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE leads ADD COLUMN intake_data TEXT DEFAULT '{}'")
+        conn.commit()
+    except Exception:
+        pass
     # Backfill: leads that have inbound SMS replies but status never updated
     conn.execute("""
         UPDATE leads SET status='replied', sequence_active=0
@@ -1553,40 +1563,127 @@ Business you are texting: {name} ({category} in {city})
         return json.loads(r.read())["content"][0]["text"].strip()
 
 
-def send_intake_email(lead: dict, prospect_email: str, phone: str, api_key: str):
-    """Send intake email to Josh when a prospect gives their email address."""
+INTAKE_QUESTIONS = [
+    "What email should I send the finished site to?",
+    "What domain name are you thinking? Like {slug}.com? I can register it for you.",
+    "Anything specific you want on the site? Colors, services, photos, anything. Or just say 'looks good' and I'll use what I have.",
+]
+
+def start_intake(lead: dict, cfg: dict):
+    """Kick off the SMS intake flow after a lead claims the site."""
+    if not all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")]):
+        return
+    slug = re.sub(r"[^a-z0-9]+", "", lead["name"].lower())[:20]
+    q = INTAKE_QUESTIONS[0]
+    send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], q)
+    conn = get_db()
+    conn.execute("UPDATE leads SET intake_step=1, intake_data='{}', status='closing' WHERE id=?", (lead["id"],))
+    conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                 (lead["id"], lead["phone"], q, "sent", "outbound"))
+    conn.commit()
+    conn.close()
+
+
+def handle_intake_reply(lead: dict, body: str, cfg: dict) -> bool:
+    """Process an intake step reply. Returns True if intake is in progress."""
+    step = lead.get("intake_step", 0)
+    if step == 0:
+        return False
+
+    try:
+        intake = json.loads(lead.get("intake_data") or "{}")
+    except Exception:
+        intake = {}
+
+    if step == 1:
+        intake["email"] = body.strip()
+        next_q = INTAKE_QUESTIONS[1].replace("{slug}", re.sub(r"[^a-z0-9]+", "", lead["name"].lower())[:20])
+        send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], next_q)
+        conn = get_db()
+        conn.execute("UPDATE leads SET intake_step=2, intake_data=? WHERE id=?", (json.dumps(intake), lead["id"]))
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                     (lead["id"], lead["phone"], next_q, "sent", "outbound"))
+        conn.commit()
+        conn.close()
+
+    elif step == 2:
+        intake["domain"] = body.strip()
+        next_q = INTAKE_QUESTIONS[2]
+        send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], next_q)
+        conn = get_db()
+        conn.execute("UPDATE leads SET intake_step=3, intake_data=? WHERE id=?", (json.dumps(intake), lead["id"]))
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                     (lead["id"], lead["phone"], next_q, "sent", "outbound"))
+        conn.commit()
+        conn.close()
+
+    elif step == 3:
+        intake["notes"] = body.strip()
+        confirm = "You're all set. I'll get started on the site and send you a link once it's live."
+        send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], confirm)
+        conn = get_db()
+        conn.execute("UPDATE leads SET intake_step=4, intake_data=?, status='closing' WHERE id=?", (json.dumps(intake), lead["id"]))
+        conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                     (lead["id"], lead["phone"], confirm, "sent", "outbound"))
+        conn.commit()
+        conn.close()
+        resend_key = cfg.get("resend_api_key", "")
+        if resend_key:
+            send_intake_email(lead, intake, resend_key)
+        send_ntfy("INTAKE COMPLETE - START BUILDING", f"{lead['name']}\nEmail: {intake.get('email','?')}\nDomain: {intake.get('domain','?')}\nPhone: {lead.get('phone','?')}", priority="urgent")
+
+    return True
+
+
+def send_intake_email(lead: dict, intake: dict, api_key: str):
+    """Send full intake form to Josh when prospect completes all 3 SMS questions."""
     try:
         name     = lead.get("name", "Unknown Business")
         category = lead.get("category", "")
         location = lead.get("location", "")
+        phone    = lead.get("phone", "")
+        email    = intake.get("email", "Not provided")
+        domain   = intake.get("domain", "Not provided")
+        notes    = intake.get("notes", "None")
+        slug     = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        preview_path = lead.get("preview_url", "")
+        cfg      = load_config()
+        base     = (cfg.get("base_url") or "").rstrip("/")
+        preview_link = f"{base}{preview_path}" if (base and preview_path) else "Not generated"
+
         body_html = f"""
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
   <div style="background:#4F46E5;padding:16px 24px;border-radius:12px 12px 0 0">
-    <h1 style="color:white;margin:0;font-size:20px">EZ SEO - New Lead Ready</h1>
+    <h1 style="color:white;margin:0;font-size:20px">EZ SEO — New Client Intake</h1>
   </div>
   <div style="background:#f9fafb;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb">
-    <h2 style="margin:0 0 16px;color:#111">{name}</h2>
-    <table style="width:100%;border-collapse:collapse">
-      <tr><td style="padding:8px 0;color:#6b7280;width:140px">Category</td><td style="padding:8px 0;color:#111">{category}</td></tr>
-      <tr><td style="padding:8px 0;color:#6b7280">Location</td><td style="padding:8px 0;color:#111">{location}</td></tr>
-      <tr><td style="padding:8px 0;color:#6b7280">Phone</td><td style="padding:8px 0;color:#111">{phone}</td></tr>
-      <tr><td style="padding:8px 0;color:#6b7280">Their Email</td><td style="padding:8px 0;color:#111;font-weight:bold">{prospect_email}</td></tr>
+    <h2 style="margin:0 0 20px;color:#111">{name}</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:15px">
+      <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 0;color:#6b7280;width:160px">Business</td><td style="padding:10px 0;color:#111;font-weight:600">{name}</td></tr>
+      <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 0;color:#6b7280">Category</td><td style="padding:10px 0;color:#111">{category}</td></tr>
+      <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 0;color:#6b7280">Location</td><td style="padding:10px 0;color:#111">{location}</td></tr>
+      <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 0;color:#6b7280">Phone</td><td style="padding:10px 0;color:#111">{phone}</td></tr>
+      <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 0;color:#6b7280">Their Email</td><td style="padding:10px 0;color:#111;font-weight:700;color:#4F46E5">{email}</td></tr>
+      <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 0;color:#6b7280">Domain They Want</td><td style="padding:10px 0;color:#111;font-weight:700">{domain}</td></tr>
+      <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 0;color:#6b7280">Notes / Requests</td><td style="padding:10px 0;color:#111">{notes}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280">Preview Site</td><td style="padding:10px 0"><a href="{preview_link}" style="color:#4F46E5">{preview_link}</a></td></tr>
     </table>
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
-    <p style="color:#374151;margin:0 0 8px"><strong>Next steps:</strong></p>
-    <ol style="color:#374151;margin:0;padding-left:20px;line-height:1.8">
-      <li>Reply to their email asking for: business name spelling, phone for site, address or service area, services offered, photos or logo, preferred domain name, Zelle info</li>
-      <li>Buy domain on GoDaddy (~$12)</li>
-      <li>Build and get approval</li>
-      <li>Collect payment via Zelle at 80% done</li>
-      <li>Transfer domain to their GoDaddy</li>
+    <p style="color:#374151;margin:0 0 8px;font-weight:600">Your checklist:</p>
+    <ol style="color:#374151;margin:0;padding-left:20px;line-height:2">
+      <li>Buy domain on GoDaddy: <strong>{domain}</strong></li>
+      <li>Push preview to GitHub repo</li>
+      <li>Connect repo to Vercel, deploy</li>
+      <li>Point GoDaddy DNS to Vercel</li>
+      <li>Send live link to <strong>{email}</strong></li>
+      <li>Collect payment</li>
     </ol>
   </div>
 </div>"""
         payload = json.dumps({
             "from": "josh@getezseo.com",
             "to": ["97franchise@gmail.com"],
-            "subject": f"New Lead Ready to Close: {name}",
+            "subject": f"New Client Intake: {name}",
             "html": body_html
         }).encode()
         req = urllib.request.Request(
@@ -1595,7 +1692,7 @@ def send_intake_email(lead: dict, prospect_email: str, phone: str, api_key: str)
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         )
         urllib.request.urlopen(req, timeout=10)
-        print(f"[RESEND] Intake email sent for {name} to 97franchise@gmail.com", flush=True)
+        print(f"[RESEND] Intake email sent for {name}", flush=True)
     except Exception as e:
         print(f"[RESEND ERROR] {e}", flush=True)
 
@@ -1809,25 +1906,15 @@ async def sms_reply_webhook(request: Request):
     cfg = load_config()
     has_twilio = all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")])
 
-    # Detect email address in inbound message - prospect is ready to close
-    email_match = re.search(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', body)
-    if email_match and has_twilio:
-        prospect_email = email_match.group(0)
-        resend_key = cfg.get("resend_api_key", "")
-        if resend_key:
-            send_intake_email(matched, prospect_email, from_, resend_key)
-        send_ntfy("EMAIL COLLECTED - CLOSE THIS", f"{matched['name']}\nEmail: {prospect_email}\nPhone: {from_}", priority="urgent")
-        conn = get_db()
-        conn.execute("UPDATE leads SET status='closing' WHERE id=?", (matched["id"],))
-        conn.commit()
-        conn.close()
-        confirm_msg = "Got it! I will be in touch shortly to get everything started."
-        send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], from_, confirm_msg)
+    # Intake flow: if this lead is mid-intake, route their reply to the intake handler
+    if matched.get("intake_step", 0) > 0 and matched.get("intake_step", 0) < 4:
         conn = get_db()
         conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
-                     (matched["id"], from_, confirm_msg, "sent", "outbound"))
+                     (matched["id"], from_, body, "received", "inbound"))
         conn.commit()
         conn.close()
+        if has_twilio:
+            handle_intake_reply(matched, body, cfg)
         return HTMLResponse(content=TWIML_EMPTY, media_type="application/xml")
 
     # Only notify for hot signals - Wyatt/Andrew handle everything else silently
@@ -1836,7 +1923,7 @@ async def sms_reply_webhook(request: Request):
     is_positive = any(w in t_lower for w in ["let's do", "lets do", "sounds good", "send it", "go ahead", "ok cool", "i'm in", "im in", "sign me up", "let's go", "lets go", "i want it", "do it"])
 
     if intent == "claim":
-        send_ntfy("HOT LEAD - CALL NOW", f"{matched['name']} wants their site live.\nCall: {from_}", priority="urgent")
+        send_ntfy("HOT LEAD - Starting intake", f"{matched['name']} said yes.\nPhone: {from_}", priority="urgent")
     elif is_price_question:
         send_ntfy("Asking about price", f"{matched['name']}\n\"{body}\"\n{from_}", priority="high")
     elif is_positive:
@@ -1873,18 +1960,9 @@ async def sms_reply_webhook(request: Request):
 
     elif intent == "claim" and has_twilio:
         try:
-            reply_msg = "Awesome! Someone from our team will be reaching out shortly to get everything set up for you."
-            send_twilio_sms(
-                cfg["twilio_account_sid"], cfg["twilio_auth_token"],
-                cfg["twilio_from_number"], from_, reply_msg
-            )
-            conn = get_db()
-            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
-                         (matched["id"], from_, reply_msg, "sent", "outbound"))
-            conn.commit()
-            conn.close()
-        except Exception:
-            pass
+            start_intake(matched, cfg)
+        except Exception as e:
+            print(f"[intake] Error starting intake: {e}", flush=True)
 
     elif intent in ("has_website", "other") and has_twilio:
         # Use Claude to generate a smart, context-aware reply

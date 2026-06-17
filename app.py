@@ -1755,6 +1755,15 @@ def handle_intake_reply(lead: dict, body: str, cfg: dict) -> bool:
         intake = {}
 
     if step == 1:
+        if "@" not in body or "." not in body.split("@")[-1]:
+            retry = "Just need your email address to send everything over. What is it?"
+            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], retry)
+            conn = get_db()
+            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                         (lead["id"], lead["phone"], retry, "sent", "outbound"))
+            conn.commit()
+            conn.close()
+            return True
         intake["email"] = body.strip()
         next_q = INTAKE_QUESTIONS[1].replace("{slug}", re.sub(r"[^a-z0-9]+", "", lead["name"].lower())[:20])
         send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], next_q)

@@ -120,9 +120,18 @@
 
   <!-- Conversation list -->
   <div style="width:300px;min-width:300px;border-right:1px solid #e5e7eb;background:white;display:flex;flex-direction:column;height:100vh;">
-    <div style="padding:16px;border-bottom:1px solid #e5e7eb;">
+    <div style="padding:14px 14px 10px;border-bottom:1px solid #e5e7eb;">
       <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:10px;">Messages</div>
-      <input x-model="msgSearch" placeholder="Search..." style="width:100%;background:#f3f4f6;border:none;border-radius:10px;padding:8px 12px;font-size:13px;color:#111;outline:none;">
+      <input x-model="msgSearch" placeholder="Search..." style="width:100%;background:#f3f4f6;border:none;border-radius:10px;padding:8px 12px;font-size:13px;color:#111;outline:none;margin-bottom:10px;">
+      <!-- Filter chips -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <template x-for="f in [{label:'All',val:'all'},{label:'Replied',val:'replied'},{label:'Hot',val:'hot'},{label:'Wyatt',val:'wyatt'},{label:'Andrew',val:'andrew'}]" :key="f.val">
+          <button @click="msgFilter=f.val"
+            :style="msgFilter===f.val ? 'background:#6366f1;color:white;border:none;' : 'background:#f3f4f6;color:#374151;border:none;'"
+            style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:100px;cursor:pointer;"
+            x-text="f.label"></button>
+        </template>
+      </div>
     </div>
     <div style="flex:1;overflow-y:auto;">
       <div x-show="msgLeads.length===0" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px;">No conversations yet.</div>
@@ -195,7 +204,7 @@
         </div>
 
         <!-- Input -->
-        <div style="padding:16px 20px;background:white;border-top:1px solid #e5e7eb;">
+        <div style="padding:12px 16px 16px;background:white;border-top:1px solid #e5e7eb;flex-shrink:0;">
           <div style="display:flex;gap:10px;align-items:flex-end;">
             <textarea x-model="threadReply" @keydown.enter.prevent="sendMsgReply()"
               placeholder="Type a message..." rows="1"
@@ -1002,6 +1011,7 @@ function app() {
     msgActiveLead: null,
     msgMessages: [],
     msgSearch: '',
+    msgFilter: 'all',
     pipelineLeads: {},
     pipelineDragLead: null,
     leaderboard: {},
@@ -1033,9 +1043,16 @@ function app() {
     selectedLocs: [],
 
     get filteredMsgLeads() {
-      if (!this.msgSearch.trim()) return this.msgLeads;
-      const q = this.msgSearch.toLowerCase();
-      return this.msgLeads.filter(l => l.name.toLowerCase().includes(q) || (l.phone||'').includes(q));
+      let leads = this.msgLeads;
+      if (this.msgFilter === 'wyatt') leads = leads.filter(l => l.agent_id !== 2);
+      else if (this.msgFilter === 'andrew') leads = leads.filter(l => l.agent_id === 2);
+      else if (this.msgFilter === 'replied') leads = leads.filter(l => ['replied','claimed','closing','closed'].includes(l.status));
+      else if (this.msgFilter === 'hot') leads = leads.filter(l => ['replied','claimed','closing'].includes(l.status));
+      if (this.msgSearch.trim()) {
+        const q = this.msgSearch.toLowerCase();
+        leads = leads.filter(l => l.name.toLowerCase().includes(q) || (l.phone||'').includes(q));
+      }
+      return leads;
     },
 
     get smsRecipientCount() {

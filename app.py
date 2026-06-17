@@ -1532,9 +1532,10 @@ async def generate_preview_bulk(request: Request):
 
 @app.post("/api/sms/send")
 async def send_sms(request: Request):
-    body    = await request.json()
-    ids     = body.get("ids", [])
-    message = body.get("message", "")
+    body      = await request.json()
+    ids       = body.get("ids", [])
+    message   = body.get("message", "")
+    media_url = body.get("media_url", "").strip()
     if not ids or not message:
         return JSONResponse({"ok": False, "error": "Missing ids or message"})
 
@@ -1561,7 +1562,10 @@ async def send_sms(request: Request):
         personalized = personalized.replace("{preview_url}", absolute_url(ensure_preview(lead)))
         try:
             await asyncio.sleep(1.1)  # Twilio caps ~1 msg/sec per number
-            data = urllib.parse.urlencode({"To": lead["phone"], "From": from_number, "Body": personalized}).encode()
+            params = {"To": lead["phone"], "From": from_number, "Body": personalized}
+            if media_url:
+                params["MediaUrl"] = media_url
+            data = urllib.parse.urlencode(params).encode()
             req  = urllib.request.Request(
                 f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
                 data=data,

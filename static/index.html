@@ -251,10 +251,14 @@
         <!-- Input -->
         <div style="padding:12px 16px 16px;background:white;border-top:1px solid #e5e7eb;flex-shrink:0;">
           <div style="display:flex;gap:10px;align-items:flex-end;">
-            <textarea x-model="threadReply" @keydown.enter.prevent="sendMsgReply()"
-              placeholder="Type a message..." rows="1"
-              style="flex:1;background:#f3f4f6;border:none;border-radius:20px;padding:10px 16px;font-size:14px;color:#111;outline:none;resize:none;max-height:120px;"
-              @input="$el.style.height='auto';$el.style.height=$el.scrollHeight+'px'"></textarea>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <textarea x-model="threadReply" @keydown.enter.prevent="sendMsgReply()"
+                placeholder="Type a message..." rows="1"
+                style="background:#f3f4f6;border:none;border-radius:20px;padding:10px 16px;font-size:14px;color:#111;outline:none;resize:none;max-height:120px;width:100%;"
+                @input="$el.style.height='auto';$el.style.height=$el.scrollHeight+'px'"></textarea>
+              <input x-model="threadMediaUrl" placeholder="Image URL for MMS (optional)" type="url"
+                style="background:#f3f4f6;border:none;border-radius:12px;padding:7px 14px;font-size:12px;color:#555;outline:none;width:100%;" />
+            </div>
             <button @click="sendMsgReply()" :disabled="!threadReply.trim() || threadSending"
               :style="{opacity: (!threadReply.trim() || threadSending) ? '0.4' : '1', cursor: (!threadReply.trim() || threadSending) ? 'not-allowed' : 'pointer', background:'#6366f1', width:'52px', height:'40px', borderRadius:'12px', border:'none', color:'white', fontWeight:'700', fontSize:'13px', flexShrink:'0'}">
               Send
@@ -1048,6 +1052,7 @@ function app() {
     threadLead: null,
     threadMessages: [],
     threadReply: '',
+    threadMediaUrl: '',
     threadSending: false,
     threadSendResult: null,
     msgLeads: [],
@@ -1329,14 +1334,17 @@ function app() {
       this.threadSending = true;
       this.threadSendResult = null;
       try {
+        const payload = { ids: [this.msgActiveLead.id], message: this.threadReply.trim() };
+        if (this.threadMediaUrl.trim()) payload.media_url = this.threadMediaUrl.trim();
         const r = await fetch('/api/sms/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: [this.msgActiveLead.id], message: this.threadReply.trim() })
+          body: JSON.stringify(payload)
         });
         this.threadSendResult = await r.json();
         if (this.threadSendResult.ok) {
           this.threadReply = '';
+          this.threadMediaUrl = '';
           const r2 = await fetch('/api/leads/' + this.msgActiveLead.id + '/messages');
           this.msgMessages = await r2.json();
           await this.$nextTick();
@@ -1472,7 +1480,7 @@ function app() {
         if (d.ok) toast(`Pushed to Render: ${d.imported} new, ${d.skipped} already there`);
         else toast('Sync failed: ' + (d.error || 'unknown'));
       } catch(e) { toast('Sync error: ' + e.message); }
-      this.syncing = false;
+      finally { this.syncing = false; }
     },
 
     async syncTwilioReplies() {

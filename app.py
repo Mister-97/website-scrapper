@@ -1335,7 +1335,9 @@ def claude_reply(lead: dict, conversation: list, api_key: str) -> str:
     name     = lead.get("name", "this business")
     category = lead.get("category", "local business")
     city     = (lead.get("location") or "").split(",")[0].strip()
-    preview_url = f"https://website-scrapper-7m42.onrender.com{lead.get('preview_url','')}" if lead.get("preview_url") else None
+    _cfg = load_config()
+    _base = (_cfg.get("base_url") or "https://getezseo.com").rstrip("/")
+    preview_url = f"{_base}{lead.get('preview_url','')}" if lead.get("preview_url") else None
 
     system = f"""You are Josh, a web designer who builds free website previews for local businesses and then pitches them on going live.
 

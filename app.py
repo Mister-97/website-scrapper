@@ -424,16 +424,12 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
 
     def log(msg):
         ts = datetime.now().strftime("%H:%M:%S")
-        entry = f"[{ts}] {msg}"
-        scraper_log.append(entry)
+        scraper_log.append(f"[{ts}] {msg}")
         print(f"[scraper] {msg}", flush=True)
 
     try:
         from playwright.async_api import async_playwright
-        try:
-            from playwright_stealth import stealth_async as _stealth
-        except ImportError:
-            _stealth = None
+        log(f"Starting: {len(categories)} industries x {len(locations)} locations (min {min_leads} leads)")
 
         seen_names = set()
         seen_phones = set()
@@ -444,216 +440,137 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
             seen_phones.add(re.sub(r"\D", "", row["phone"] or ""))
         conn.close()
 
-        lock = asyncio.Lock()
-        counter = [0]
-
+        work_locs = list(locations)
         extra_pool = [l for l in (extra_locs or []) if l not in set(locations)]
         random.shuffle(extra_pool)
+        extra_idx = 0
+        total_found = 0
 
-        # Build shared work queue
-        work_queue: asyncio.Queue = asyncio.Queue()
-        for loc in locations:
-            for cat in categories:
-                work_queue.put_nowait((cat, loc))
-
-        N_WORKERS = 2
-        log(f"Starting {N_WORKERS} parallel workers — {work_queue.qsize()} searches queued")
-
-        BROWSER_ARGS = [
-            "--no-sandbox", "--disable-setuid-sandbox",
-            "--disable-blink-features=AutomationControlled",
-            "--disable-dev-shm-usage", "--disable-infobars",
-            "--no-first-run", "--no-default-browser-check",
-            "--disable-gpu", "--no-zygote",
-        ]
-        UA_LIST = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        ]
-
-        async def make_ctx_page(browser, wid):
-            ctx = await browser.new_context(
-                viewport={"width": random.choice([1280, 1366, 1440]), "height": random.choice([768, 800, 900])},
-                user_agent=UA_LIST[wid % len(UA_LIST)],
-                locale="en-US",
-                timezone_id="America/Chicago",
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--no-zygote"],
             )
-            pg = await ctx.new_page()
-            pg.set_default_navigation_timeout(20000)
-            pg.set_default_timeout(12000)
-            if _stealth:
-                await _stealth(pg)
-            return ctx, pg
+            context = await browser.new_context(
+                viewport={"width": 1280, "height": 800},
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            )
+            page = await context.new_page()
 
-        async def worker(wid):
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=BROWSER_ARGS)
-                ctx, page = await make_ctx_page(browser, wid)
-                try:
-                    while not scraper_stop_requested:
-                        # Pull next job, expanding to extra locations if needed
-                        if work_queue.empty():
-                            async with lock:
-                                if work_queue.empty():
-                                    if min_leads > 0 and counter[0] < min_leads and extra_pool:
-                                        next_loc = extra_pool.pop(0)
-                                        for cat in categories:
-                                            work_queue.put_nowait((cat, next_loc))
-                                        log(f"Only {counter[0]}/{min_leads} leads, expanding to {next_loc}...")
-                                    else:
-                                        break
-                        try:
-                            cat, loc = work_queue.get_nowait()
-                        except Exception:
-                            break
+            loc_idx = 0
+            while loc_idx < len(work_locs):
+                location = work_locs[loc_idx]
+                loc_idx += 1
 
-                        log(f"[W{wid+1}] {cat} in {loc}")
-                        found = 0
-                        try:
-                            url = f"https://www.google.com/maps/search/{(cat + ' in ' + loc).replace(' ', '+')}"
-                            await page.goto(url, wait_until="domcontentloaded", timeout=20000)
-                            await page.wait_for_timeout(1200)
+                for category in categories:
+                    if scraper_stop_requested:
+                        log("Scrape stopped by user.")
+                        break
+                    log(f"Searching: {category} in {location}")
+                    found = 0
+                    try:
+                        query = f"{category} in {location}"
+                        url = f"https://www.google.com/maps/search/{query.replace(' ', '+')}"
+                        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(2500)
 
-                            panel = page.locator('div[role="feed"]')
-                            prev = 0
-                            for _ in range(6):
-                                try:
-                                    await panel.evaluate("el => el.scrollBy(0, 1000)")
-                                    await page.wait_for_timeout(500)
-                                    cur = await page.locator('a[href*="/maps/place/"]').count()
-                                    if cur == prev:
-                                        break
-                                    prev = cur
-                                except Exception:
-                                    break
+                        panel = page.locator('div[role="feed"]')
+                        prev_count = 0
+                        for _ in range(20):
+                            await panel.evaluate("el => el.scrollBy(0, 800)")
+                            await page.wait_for_timeout(800)
+                            cur_count = await page.locator('a[href*="/maps/place/"]').count()
+                            if cur_count == prev_count:
+                                break
+                            prev_count = cur_count
 
-                            hrefs, seen_h = [], set()
-                            for el in await page.locator('a[href*="/maps/place/"]').all():
-                                h = await el.get_attribute("href")
-                                if h and h not in seen_h:
-                                    seen_h.add(h)
-                                    hrefs.append(h)
+                        listings = await page.locator('a[href*="/maps/place/"]').all()
+                        hrefs, seen_hrefs = [], set()
+                        for l in listings:
+                            href = await l.get_attribute("href")
+                            if href and href not in seen_hrefs:
+                                seen_hrefs.add(href)
+                                hrefs.append(href)
 
-                            consec = 0
-                            for href in hrefs[:35]:
-                                if scraper_stop_requested:
-                                    break
-                                try:
-                                    await page.goto(href, wait_until="domcontentloaded", timeout=15000)
-                                    await page.wait_for_timeout(random.randint(500, 800))
-                                    consec = 0
+                        log(f"  Found {len(hrefs)} listings")
+                        for href in hrefs[:60]:
+                            if scraper_stop_requested:
+                                break
+                            try:
+                                await page.goto(href, wait_until="domcontentloaded", timeout=20000)
+                                await page.wait_for_timeout(1200)
 
-                                    name_el = page.locator("h1").first
-                                    name = (await name_el.inner_text()).strip() if await name_el.count() > 0 else ""
-                                    if not name:
-                                        continue
-
-                                    async with lock:
-                                        if (name, loc) in seen_names:
-                                            continue
-
-                                    if await page.locator('a[data-item-id="authority"]').count() > 0:
-                                        async with lock:
-                                            seen_names.add((name, loc))
-                                        continue
-
-                                    phone_el = page.locator('button[data-item-id*="phone"]')
-                                    phone = ""
-                                    if await phone_el.count() > 0:
-                                        phone = (await phone_el.first.get_attribute("aria-label") or "").replace("Phone:", "").strip()
-                                        if not phone:
-                                            phone = (await phone_el.first.inner_text()).strip()
-                                    if not phone:
-                                        async with lock:
-                                            seen_names.add((name, loc))
-                                        continue
-
-                                    digits = re.sub(r"\D", "", phone)
-                                    async with lock:
-                                        if digits in seen_phones:
-                                            seen_names.add((name, loc))
-                                            continue
-                                        seen_phones.add(digits)
-                                        seen_names.add((name, loc))
-                                        agent_id = 1 if counter[0] % 2 == 0 else 2
-                                        counter[0] += 1
-
-                                    address_el = page.locator('button[data-item-id="address"]')
-                                    address = ""
-                                    if await address_el.count() > 0:
-                                        address = (await address_el.first.get_attribute("aria-label") or "").replace("Address:", "").strip()
-
-                                    logo_url = ""
-                                    try:
-                                        img_el = page.locator('button[jsaction*="heroHeaderImage"] img, img[decoding="async"][src*="googleusercontent"]').first
-                                        if await img_el.count() > 0:
-                                            src = await img_el.get_attribute("src") or ""
-                                            if src.startswith("http"):
-                                                logo_url = src.split("=")[0] + "=s400-c" if "=" in src else src
-                                    except Exception:
-                                        pass
-
-                                    db = get_db()
-                                    db.execute(
-                                        "INSERT INTO leads (name, phone, address, category, location, maps_url, logo_url, agent_id) VALUES (?,?,?,?,?,?,?,?)",
-                                        (name, phone, address, cat, loc, page.url, logo_url, agent_id)
-                                    )
-                                    db.commit()
-                                    db.close()
-                                    found += 1
-                                    log(f"  + {name} | {phone}")
-
-                                except Exception:
-                                    consec += 1
-                                    if consec >= 4:
-                                        log(f"  [W{wid+1}] restarting page after 4 failures")
-                                        try:
-                                            await ctx.close()
-                                        except Exception:
-                                            pass
-                                        ctx, page = await make_ctx_page(browser, wid)
-                                        consec = 0
+                                name_el = page.locator("h1").first
+                                name = (await name_el.inner_text()).strip() if await name_el.count() > 0 else ""
+                                if not name or (name, location) in seen_names:
                                     continue
 
-                            log(f"  [W{wid+1}] Done — {found} new leads")
+                                if await page.locator('a[data-item-id="authority"]').count() > 0:
+                                    seen_names.add((name, location))
+                                    continue
 
-                        except Exception as e:
-                            log(f"  [W{wid+1}] Error on search: {e}")
-                            try:
-                                await ctx.close()
-                            except Exception:
-                                pass
-                            try:
-                                ctx, page = await make_ctx_page(browser, wid)
-                            except Exception as e2:
-                                log(f"  [W{wid+1}] Browser dead, relaunching: {e2}")
+                                phone_el = page.locator('button[data-item-id*="phone"]')
+                                phone = ""
+                                if await phone_el.count() > 0:
+                                    phone = (await phone_el.first.get_attribute("aria-label") or "").replace("Phone:", "").strip()
+                                    if not phone:
+                                        phone = (await phone_el.first.inner_text()).strip()
+                                if not phone:
+                                    seen_names.add((name, location))
+                                    continue
+
+                                digits = re.sub(r"\D", "", phone)
+                                if digits in seen_phones:
+                                    seen_names.add((name, location))
+                                    continue
+                                seen_phones.add(digits)
+
+                                address_el = page.locator('button[data-item-id="address"]')
+                                address = ""
+                                if await address_el.count() > 0:
+                                    address = (await address_el.first.get_attribute("aria-label") or "").replace("Address:", "").strip()
+
+                                logo_url = ""
                                 try:
-                                    await browser.close()
+                                    img_el = page.locator('button[jsaction*="heroHeaderImage"] img, img[decoding="async"][src*="googleusercontent"]').first
+                                    if await img_el.count() > 0:
+                                        src = await img_el.get_attribute("src") or ""
+                                        if src.startswith("http"):
+                                            logo_url = src.split("=")[0] + "=s400-c" if "=" in src else src
                                 except Exception:
                                     pass
-                                try:
-                                    browser = await p.chromium.launch(headless=True, args=BROWSER_ARGS)
-                                    ctx, page = await make_ctx_page(browser, wid)
-                                except Exception as e3:
-                                    log(f"  [W{wid+1}] Could not relaunch browser, stopping worker: {e3}")
-                                    break
 
-                        await asyncio.sleep(random.uniform(0.3, 1.0))
+                                seen_names.add((name, location))
+                                agent_id = 1 if total_found % 2 == 0 else 2
+                                conn = get_db()
+                                conn.execute(
+                                    "INSERT INTO leads (name, phone, address, category, location, maps_url, logo_url, agent_id) VALUES (?,?,?,?,?,?,?,?)",
+                                    (name, phone, address, category, location, page.url, logo_url, agent_id)
+                                )
+                                conn.commit()
+                                conn.close()
+                                found += 1
+                                total_found += 1
+                                log(f"  + {name} | {phone}")
+                            except Exception:
+                                continue
 
-                finally:
-                    log(f"[W{wid+1}] Worker finished")
-                    try:
-                        await ctx.close()
-                    except Exception:
-                        pass
-                    try:
-                        await browser.close()
-                    except Exception:
-                        pass
+                        log(f"  Done — {found} new leads")
+                    except Exception as e:
+                        log(f"  Error: {e}")
+                    await asyncio.sleep(0.5)
 
-        await asyncio.gather(*[worker(i) for i in range(N_WORKERS)])
+                if scraper_stop_requested:
+                    break
 
-        total_found = counter[0]
+                if min_leads > 0 and total_found < min_leads and extra_idx < len(extra_pool):
+                    next_loc = extra_pool[extra_idx]
+                    extra_idx += 1
+                    work_locs.append(next_loc)
+                    log(f"Only {total_found}/{min_leads} leads so far, expanding to {next_loc}...")
+
+            await browser.close()
+
         total = get_db().execute("SELECT COUNT(*) FROM leads").fetchone()[0]
         log(f"Scrape complete. {total_found} new leads found this run. Total in DB: {total}")
     except Exception as e:

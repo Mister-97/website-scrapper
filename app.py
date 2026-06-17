@@ -2643,7 +2643,8 @@ async def auth_login(request: Request):
         return RedirectResponse("/login?error=Invalid+email+or+password", status_code=302)
     token = _make_token(stored_hash)
     response = RedirectResponse("/", status_code=302)
-    response.set_cookie(SESSION_COOKIE, token, httponly=True, secure=True, samesite="lax", max_age=60*60*24*30)
+    is_local = request.headers.get("host", "").startswith("localhost") or request.headers.get("host", "").startswith("127.")
+    response.set_cookie(SESSION_COOKIE, token, httponly=True, secure=not is_local, samesite="lax", max_age=60*60*24*30)
     return response
 
 
@@ -2701,7 +2702,8 @@ async def home_page():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     host = request.headers.get("host", "")
-    if "admin" not in host:
+    is_local = host.startswith("localhost") or host.startswith("127.0.0.1")
+    if "admin" not in host and not is_local:
         return RedirectResponse("/home", status_code=302)
     if not _is_authenticated(request):
         return RedirectResponse("/login", status_code=302)

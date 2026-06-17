@@ -446,13 +446,19 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
         extra_idx = 0
         total_found = 0
 
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(
+        async def make_page(browser):
+            ctx = await browser.new_context(
                 viewport={"width": 1280, "height": 800},
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             )
-            page = await context.new_page()
+            pg = await ctx.new_page()
+            pg.set_default_navigation_timeout(15000)
+            pg.set_default_timeout(10000)
+            return ctx, pg
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context, page = await make_page(browser)
 
             loc_idx = 0
             while loc_idx < len(work_locs):
@@ -469,14 +475,14 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                     try:
                         query = f"{category} in {location}"
                         url = f"https://www.google.com/maps/search/{query.replace(' ', '+')}"
-                        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                        await page.wait_for_timeout(2500)
+                        await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+                        await page.wait_for_timeout(1200)
 
                         panel = page.locator('div[role="feed"]')
                         prev_count = 0
-                        for _ in range(20):
+                        for _ in range(8):
                             await panel.evaluate("el => el.scrollBy(0, 800)")
-                            await page.wait_for_timeout(800)
+                            await page.wait_for_timeout(600)
                             cur_count = await page.locator('a[href*="/maps/place/"]').count()
                             if cur_count == prev_count:
                                 break
@@ -490,10 +496,12 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                                 seen_hrefs.add(href)
                                 hrefs.append(href)
 
-                        for href in hrefs[:60]:
+                        consec_failures = 0
+                        for href in hrefs[:40]:
                             try:
-                                await page.goto(href, wait_until="domcontentloaded", timeout=20000)
-                                await page.wait_for_timeout(1200)
+                                await page.goto(href, wait_until="domcontentloaded", timeout=12000)
+                                await page.wait_for_timeout(700)
+                                consec_failures = 0
 
                                 name_el = page.locator("h1").first
                                 name = (await name_el.inner_text()).strip() if await name_el.count() > 0 else ""
@@ -548,11 +556,25 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                                 total_found += 1
                                 log(f"  + {name} | {phone} (agent {'Wyatt' if agent_id == 1 else 'Andrew'})")
                             except Exception:
+                                consec_failures += 1
+                                if consec_failures >= 5:
+                                    log("  5 timeouts in a row — restarting browser page")
+                                    try:
+                                        await context.close()
+                                    except Exception:
+                                        pass
+                                    context, page = await make_page(browser)
+                                    consec_failures = 0
                                 continue
 
                         log(f"  Done — {found} new leads")
                     except Exception as e:
                         log(f"  Error: {e}")
+                        try:
+                            await context.close()
+                        except Exception:
+                            pass
+                        context, page = await make_page(browser)
                     await asyncio.sleep(0.5)
 
                 if scraper_stop_requested:
@@ -565,6 +587,10 @@ async def run_scraper(categories: list[str], locations: list[str], min_leads: in
                     work_locs.append(next_loc)
                     log(f"Only {total_found}/{min_leads} leads so far, expanding to {next_loc}...")
 
+            try:
+                await context.close()
+            except Exception:
+                pass
             await browser.close()
 
         total = get_db().execute("SELECT COUNT(*) FROM leads").fetchone()[0]

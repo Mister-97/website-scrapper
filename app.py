@@ -148,7 +148,34 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+    try:
+        conn.execute("ALTER TABLE leads ADD COLUMN reengaged_at TEXT")
+        conn.commit()
+    except Exception:
+        pass
+    # Backfill: leads that have inbound SMS replies but status never updated
+    conn.execute("""
+        UPDATE leads SET status='replied', sequence_active=0
+        WHERE status IN ('contacted','new','dead')
+        AND id IN (SELECT DISTINCT lead_id FROM sms_log WHERE direction='inbound')
+    """)
+    conn.commit()
     conn.close()
+
+
+def sync_replied_statuses() -> int:
+    """Scan sms_log for inbound messages and fix any leads stuck at an early status."""
+    conn = get_db()
+    updated = conn.execute("""
+        UPDATE leads SET status='replied', sequence_active=0
+        WHERE status IN ('contacted','new','dead')
+        AND id IN (SELECT DISTINCT lead_id FROM sms_log WHERE direction='inbound')
+    """).rowcount
+    conn.commit()
+    conn.close()
+    if updated:
+        print(f"[sync] Fixed {updated} lead(s) to replied status", flush=True)
+    return updated
 
 
 # ── Sequence templates ────────────────────────────────────────────────────────
@@ -218,19 +245,24 @@ def classify_reply(text: str, current_status: str = "") -> str:
 # ── App setup ─────────────────────────────────────────────────────────────────
 
 async def sequence_loop():
-    """Background loop: follow-ups every 30 min, auto-scrape at 8am CST."""
+    """Background loop: follow-ups every 60s, auto-scrape at 8am CST, 30-day re-engagement."""
     last_scrape_date = None
     while True:
         await asyncio.sleep(60)
         try:
-            # Auto-scrape at 8am CST (14:00 UTC)
+            # Auto-scrape at 8am CST (14:00 UTC) using scrape queue if set
             now_utc = datetime.utcnow()
             today = now_utc.date()
             if now_utc.hour == 14 and now_utc.minute < 2 and last_scrape_date != today:
                 last_scrape_date = today
                 cfg = load_config()
-                cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
-                locs = cfg.get("auto_scrape_locations") or ["Naperville IL","Schaumburg IL","Elmhurst IL","Oak Park IL","Bolingbrook IL"]
+                queue = cfg.get("scrape_queue") or []
+                if queue:
+                    cats = list({q["category"] for q in queue})
+                    locs = list({q["location"] for q in queue})
+                else:
+                    cats = cfg.get("auto_scrape_categories") or ["nail salon","hair salon","barber shop","auto repair","car detailing","cleaning service","landscaping","electrician","plumber","hvac"]
+                    locs = cfg.get("auto_scrape_locations") or ["Fort Worth TX","Dallas TX","Arlington TX","Plano TX","Irving TX"]
                 print(f"[auto-scrape] Starting daily scrape at 8am CST - {len(cats)} categories x {len(locs)} locations")
                 send_ntfy("Auto-Scrape Started", f"Wyatt and Andrew are hunting leads. {len(cats)} categories x {len(locs)} locations.", priority="default")
                 asyncio.create_task(run_scraper(cats, locs))
@@ -242,6 +274,37 @@ async def sequence_loop():
                 print(f"[scheduler] sent {sent} follow-up texts")
         except Exception as e:
             print(f"[scheduler] error: {e}")
+        try:
+            # Re-engage leads that went cold 30+ days ago (one final message)
+            reeng_cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+            conn = get_db()
+            cold = conn.execute(
+                "SELECT * FROM leads WHERE sequence_active=0 AND status IN ('contacted','dead') "
+                "AND first_contacted_at IS NOT NULL AND first_contacted_at <= ? "
+                "AND reengaged_at IS NULL AND phone IS NOT NULL",
+                (reeng_cutoff,)
+            ).fetchall()
+            conn.close()
+            if cold:
+                cfg = load_config()
+                if all([cfg.get("twilio_account_sid"), cfg.get("twilio_auth_token"), cfg.get("twilio_from_number")]):
+                    for lead in cold:
+                        lead = dict(lead)
+                        try:
+                            msg = f"Hey, just circling back one last time. Still have that free site ready for {lead['name']} whenever you want it."
+                            send_twilio_sms(cfg["twilio_account_sid"], cfg["twilio_auth_token"], cfg["twilio_from_number"], lead["phone"], msg)
+                            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            conn = get_db()
+                            conn.execute("UPDATE leads SET reengaged_at=? WHERE id=?", (now_str, lead["id"]))
+                            conn.execute("INSERT INTO sms_log (lead_id, phone, message, status, direction) VALUES (?,?,?,?,?)",
+                                         (lead["id"], lead["phone"], msg, "sent", "outbound"))
+                            conn.commit()
+                            conn.close()
+                            print(f"[reengagement] Sent to {lead['name']}", flush=True)
+                        except Exception as e:
+                            print(f"[reengagement] Error for {lead.get('name')}: {e}", flush=True)
+        except Exception as e:
+            print(f"[reengagement] loop error: {e}", flush=True)
 
 
 PREVIEWS_DIR = os.path.join(DATA_DIR, "previews")
@@ -283,11 +346,14 @@ async def run_scraper(categories: list[str], locations: list[str]):
     try:
         from playwright.async_api import async_playwright
         log(f"Starting: {len(categories)} industries x {len(locations)} locations")
-        # Dedupe by (name, location) so same-named shops in different towns both get scraped
+        # Dedupe by (name, location) and by phone number (including opted-out numbers)
         seen_names = set()
+        seen_phones = set()
         conn = get_db()
         for row in conn.execute("SELECT name, location FROM leads"):
             seen_names.add((row["name"], row["location"]))
+        for row in conn.execute("SELECT phone FROM leads WHERE phone IS NOT NULL"):
+            seen_phones.add(re.sub(r"\D", "", row["phone"] or ""))
         conn.close()
 
         async with async_playwright() as p:
@@ -352,6 +418,11 @@ async def run_scraper(categories: list[str], locations: list[str]):
                                 if not phone:
                                     seen_names.add((name, location))
                                     continue
+                                phone_digits = re.sub(r"\D", "", phone)
+                                if phone_digits in seen_phones:
+                                    seen_names.add((name, location))
+                                    continue
+                                seen_phones.add(phone_digits)
 
                                 address_el = page.locator('button[data-item-id="address"]')
                                 address = ""
@@ -2091,6 +2162,29 @@ async def log_manual_message(lead_id: int, request: Request):
                  (lead_id, lead["phone"], text, "manual", direction))
     conn.commit()
     conn.close()
+    return {"ok": True}
+
+
+@app.post("/api/sync-replies")
+async def api_sync_replies():
+    """Backfill lead statuses from sms_log inbound messages."""
+    updated = sync_replied_statuses()
+    return {"ok": True, "updated": updated}
+
+
+@app.get("/api/scrape/queue")
+async def get_scrape_queue():
+    cfg = load_config()
+    return {"queue": cfg.get("scrape_queue") or []}
+
+
+@app.post("/api/scrape/queue")
+async def update_scrape_queue(request: Request):
+    body = await request.json()
+    queue = body.get("queue", [])
+    cfg = load_config()
+    cfg["scrape_queue"] = queue
+    save_config({"scrape_queue": queue})
     return {"ok": True}
 
 
